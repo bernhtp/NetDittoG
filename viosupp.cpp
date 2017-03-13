@@ -44,14 +44,14 @@ void _stdcall
    DWORD                     nWrite;
 
    FillConsoleOutputAttribute(hConsole, attr, lenWrt, c, &nWrite);
-   WriteConsoleOutputCharacter(hConsole, str, minLen, c, &nWrite);
+   WriteConsoleOutputCharacter(hConsole, str, (DWORD)minLen, c, &nWrite);
 
    if ( minLen < (size_t)lenWrt )
    {
       COORD                  c2 = {(short)(col + minLen), row};
 
       c.Y += (short)minLen;
-      FillConsoleOutputCharacter(hConsole, L' ', lenWrt - minLen, c2, &nWrite);
+      FillConsoleOutputCharacter(hConsole, L' ', (DWORD)(lenWrt - minLen), c2, &nWrite);
    }
 }
 
@@ -325,6 +325,6 @@ void _stdcall
 
    FillConsoleOutputAttribute(hConsole, attr, len, c, &nWrite);
    FillConsoleOutputCharacter(hConsole, fill, len, c, &nWrite);
-   WriteConsoleOutputCharacter(hConsole, title, wcslen(title),
+   WriteConsoleOutputCharacter(hConsole, title, (DWORD)wcslen(title),
                                cTitle, &nWrite);
 }
