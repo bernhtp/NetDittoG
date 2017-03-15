@@ -146,7 +146,7 @@ DWORD
 {
    DWORD                     rc = 0;
    WCHAR                     newName[_MAX_PATH];
-   int                       len;
+   size_t                    len;
 
    len = wcslen(gOptions.target.path) - wcslen(srcEntry->cFileName);
    wcsncpy(newName, gOptions.target.path, len);

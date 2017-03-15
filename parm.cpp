@@ -174,7 +174,7 @@ short _stdcall                            // ret-0=success
    for ( s = str;  state < 5;  s++ )
    {
       if ( t = wcschr(inputTrans, *s) )
-         input = t - inputTrans;
+         input = (USHORT)(t - inputTrans);
       else
          if ( *s )
             input = DIM(inputTrans);
@@ -693,7 +693,7 @@ DirEntry * _stdcall
    )
 {
    DirEntry                * dirEntry;
-   int                       dirEntryLen;
+   size_t                    dirEntryLen;
 
    dirEntryLen = sizeof *dirEntry
       - sizeof(findBuffer->cFileName)

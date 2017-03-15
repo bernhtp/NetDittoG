@@ -208,7 +208,7 @@ BOOL
       }
    }
    else
-      lenStream = _msize(gOptions.unsecure);
+      lenStream = (DWORD)_msize(gOptions.unsecure);
 
    
    cbWrite = GetSecurityDescriptorLength((SECURITY_DESCRIPTOR *)gOptions.unsecure->cStreamName);

@@ -71,7 +71,7 @@ static void _cdecl
 short _stdcall
    StatsTimerCreate()
 {
-   ULONG                    hStatsThread;
+   uintptr_t                    hStatsThread;
 
    if ( gOptions.statsInterval == 0 )
       gOptions.statsInterval = 1000;      // default to 1000ms (1 sec)
@@ -158,12 +158,12 @@ static void _cdecl
 void _stdcall
    SpaceCheckStart()
 {
-   ULONG                     hSpaceThread;
+   uintptr_t                  hSpaceThread;
 
    if ( gOptions.spaceInterval == 0 )
       gOptions.spaceInterval = 60000l;     // default to 60 secs
    if ( gOptions.spaceMinFree == 0 )
-      gOptions.spaceMinFree = 1000000l;    // default to 1MB
+      gOptions.spaceMinFree = 10000000l;    // default to 10MB
 
    hSpaceThread = _beginthread((ThreadFunc)SpaceCheckThread,
                                10000, NULL);

@@ -451,7 +451,7 @@ void _stdcall
 
    tDiff = tNow - tStart;
    ElapsedTimeStr(tDiff / 1000, temp[0]);
-   WriteConsoleOutputCharacter(hConsole, temp[0], wcslen(temp[0]), c1, &nWrite);
+   WriteConsoleOutputCharacter(hConsole, temp[0], (DWORD)wcslen(temp[0]), c1, &nWrite);
 
 
    if ( tDiff == 0 )

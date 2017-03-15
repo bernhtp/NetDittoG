@@ -30,7 +30,7 @@ int _inline                                // ret-length in chars
       char           const * s1            // in -ANSI string
    )
 {
-   return strlen( s1 );
+   return (int)strlen( s1 );
 }
 
 #if 0
@@ -39,7 +39,7 @@ int _inline                                // ret-length in chars
       UCHAR          const * s1            // in -ANSI string
    )
 {
-   return strlen( (char const *) s1 );
+   return (int)strlen( (char const *) s1 );
 }
 #endif
 
@@ -509,7 +509,7 @@ int _inline                                // ret-length in chars
       WCHAR          const * s1            // in -UNICODE string
    )
 {
-   return wcslen( s1 );
+   return (int)wcslen( s1 );
 }
 
 void _inline

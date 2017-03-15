@@ -30,13 +30,13 @@ wchar_t *
       WCHAR                * timeStr       // out-YY-MM-DD HH:MM:SS format string
    ) const
 {
-   struct tm               * tm_time;
+   struct tm                 tm_time;
 
-   tm_time = localtime(&tTime);
+   _localtime64_s(&tm_time, &tTime);
 
    _swprintf(timeStr, L"%02d-%02d-%02d %02d:%02d:%02d",
-                tm_time->tm_year, tm_time->tm_mon+1,tm_time->tm_mday,
-                tm_time->tm_hour, tm_time->tm_min,  tm_time->tm_sec);
+                tm_time.tm_year % 100, tm_time.tm_mon+1,tm_time.tm_mday,
+                tm_time.tm_hour, tm_time.tm_min,  tm_time.tm_sec);
    return timeStr;
 }
 

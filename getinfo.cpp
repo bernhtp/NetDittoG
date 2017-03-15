@@ -40,7 +40,7 @@ int                                        // ret-length or -1 if error
    if ( nSlash < 3 )
       return -1;
 
-   return c - uncPath;
+   return (int)(c - uncPath);
 }
 
 
@@ -74,7 +74,7 @@ int                                        // ret-length copied or -1 if error
    if ( nSlash < 3 )
       return -1;
 
-   return c - uncPath;
+   return (int)(c - uncPath);
 }
 
 DWORD
@@ -153,7 +153,7 @@ DWORD
    }
 
    // get \\server\share part of UNC
-   len = wcslen(volRoot);
+   len = (int)wcslen(volRoot);
    if ( volRoot[len - 1] != L'\\' )
       wcscpy(volRoot+len, L"\\");
 
@@ -228,7 +228,7 @@ int                                        // ret-0=volume components equal
    if ( nSlash < 3 )
       return 1;
 
-   len = c - path1;
+   len = (int)(c - path1);
 
    // If sharename/path separator is not null or backslash, they're not the same
    if ( path2[len] != L'\0'  &&  path2[len] != L'\\' )

@@ -25,13 +25,13 @@ Updates     -
 class TTime
 {
 protected:
-   time_t                    tTime;
+	__time64_t              tTime;
 
 public:
                         TTime() { };
-                        TTime(time_t t) { tTime = t; };
+                        TTime(__time64_t t) { tTime = t; };
 
-   void                 Set(time_t t) { tTime = t; };
+   void                 Set(__time64_t t) { tTime = t; };
    void                 SetNow() { time(&tTime); };
    time_t               Get() const { return tTime; };
    wchar_t *            YMD_HMS(wchar_t * timeStr) const;

@@ -128,7 +128,7 @@ DWORD _stdcall                            // ret-0=success -1=overflow +=error
       // Update directory block
       dir->dirBuffer.currBlock->hwmEntry = (DirEntry *) (((byte *) dir->dirBuffer.currBlock->hwmEntry)
             + cbDirEntry);
-      dir->dirBuffer.currBlock->avail -= cbDirEntry;
+      dir->dirBuffer.currBlock->avail -= (DWORD)cbDirEntry;
       dirCount++;
    }
 
@@ -164,9 +164,9 @@ DWORD _stdcall                            // ret-0=success -1=overflow +=error
          newIndexLen = LEN_DirIndex + (dirCount * sizeof (DirEntry *));
          newIndexLen = max( newIndexLen, gOptions.sizeDirIndex );
          newIndex = (DirIndex *) new char[newIndexLen];
-         newIndex->availSlots = (newIndexLen - LEN_DirIndex) / sizeof (DirEntry *);
+         newIndex->availSlots = (DWORD)((newIndexLen - LEN_DirIndex) / sizeof (DirEntry *));
          BdQueueAddEnd( &dir->dirBuffer.index, &newIndex->chain );
-         bufferMax += newIndexLen;
+         bufferMax += (BufferOffset)newIndexLen;
       }
       // if next index is not big enough, allocate a bigger one
       dir->dirBuffer.currIndex = (DirIndex *) dir->dirBuffer.currIndex->chain.fwd;
@@ -176,11 +176,11 @@ DWORD _stdcall                            // ret-0=success -1=overflow +=error
          newIndexLen = LEN_DirIndex + dirCount * sizeof (DirEntry *);
          newIndex = (DirIndex *) new char[newIndexLen];
          memcpy( newIndex, dir->dirBuffer.currIndex, oldIndexLen );
-         newIndex->availSlots = (newIndexLen - LEN_DirIndex) / sizeof (DirEntry *);
+         newIndex->availSlots = (BufferOffset)((newIndexLen - LEN_DirIndex) / sizeof (DirEntry *));
          BdQueueInsAft( &dir->dirBuffer.index, &newIndex->chain, &dir->dirBuffer.currIndex->chain );
-         bufferMax += newIndexLen;
+         bufferMax += (BufferOffset)newIndexLen;
          BdQueueDel( &dir->dirBuffer.index, &dir->dirBuffer.currIndex->chain );
-         bufferMax -= oldIndexLen;
+         bufferMax -= (BufferOffset)oldIndexLen;
          delete[] dir->dirBuffer.currIndex;
          dir->dirBuffer.currIndex = newIndex;
       }
