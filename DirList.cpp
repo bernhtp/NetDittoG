@@ -9,6 +9,7 @@ DirList::DirList(wchar_t * p_path)
 	m_cbUsed = 0;
 }
 
+/// Pushes a new LevelHeader on top of the lifo buffer stack
 size_t DirList::DirPush(size_t p_parentLevelOffset)
 {
 	m_LevelHeaderOffset = m_cbUsed;
@@ -21,7 +22,7 @@ size_t DirList::DirPush(size_t p_parentLevelOffset)
 	return m_LevelHeaderOffset;
 }
 
-/// Pop up one directory level
+/// Pops off the top LevelHeader from the lifo buffer stack
 void DirList::DirPop(size_t p_levelHeaderOffset)
 {
 	LevelHeader * levelHeader = (LevelHeader *)(m_buffer + p_levelHeaderOffset);

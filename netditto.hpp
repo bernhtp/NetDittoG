@@ -30,6 +30,8 @@
 #include "TSync.hpp"
 #include "WildMatch.hpp"
 
+#include "DirList.h"
+
 //-----------------------------------------------------------------------------
 // Options structures, types, macros and constants
 //-----------------------------------------------------------------------------
@@ -57,7 +59,6 @@ struct Property                          // Actions for dir/file properties
    Actions                   perms;      // file/dir permissions
 };
 
-#define INDEXEOL             (NULL)       // end-of-list index marker value
 #define GETATTRIB ( FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE  \
                   | FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_READONLY \
                   | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_DIRECTORY )
@@ -93,12 +94,6 @@ struct Property                          // Actions for dir/file properties
 
 #define DIR_IndexSize        (1024*2)    // Initial DirIndex allocation size
 #define DIR_BlockSize        (1024*512)  // Default DirBlock allocation size
-
-//-----------------------------------------------------------------------------
-// Directory/file buffer pool management types and macros
-//-----------------------------------------------------------------------------
-
-typedef DWORD BufferOffset;
 
 
 //-----------------------------------------------------------------------------
@@ -164,158 +159,49 @@ typedef struct
    StatsCommon               target;
 }                         Stats;
 
-//-----------------------------------------------------------------------------
-// Bi-directional queue structures.
-//-----------------------------------------------------------------------------
-
-struct BdQueueElement
-{
-   BdQueueElement          * fwd;        // next element on queue
-   BdQueueElement          * bwd;        // previous element on queue
-};
-
-struct BdQueueAnchor
-{
-   BdQueueElement          * head;       // first element on queue
-   BdQueueElement          * tail;       // last element on queue
-   DWORD                     count;      // number of elements on queue
-};
-
-void _stdcall
-   BdQueueInit(
-      BdQueueAnchor        * anchor      // out-queue anchor to be initialized
-   );
-
-void _stdcall
-   BdQueueAddEnd(
-      BdQueueAnchor        * anchor     ,// i/o-queue anchor
-      BdQueueElement       * addQel      // i/o-element to be added at end of queue
-   );
-
-void _stdcall
-   BdQueueInsAft(
-      BdQueueAnchor        * anchor     ,// i/o-queue anchor
-      BdQueueElement       * addQel     ,// i/o-element to be inserted
-      BdQueueElement       * aftQel      // i/o-insert point
-   );
-
-void _stdcall
-   BdQueueDel(
-      BdQueueAnchor        * anchor     ,// i/o-queue anchor
-      BdQueueElement       * delQel      // i/o-element to be deleted from queue
-   );
-
-//-----------------------------------------------------------------------------
-// The BufferPool structure was originally necessitated by the 64K segments
-// of segmented Intel architecure, but still exists in the Win32 version to
-// conserve memory by keeping directory entries as variable length items and
-// by making this a LIFO stack corresponding to a directory hierarchy's
-// inherently recursive nature.  It maintains a LIFO data structure for
-// directory entries and a separate index area.  To reduce the number of
-// heap allocations, directory entries at each level are appended to the
-// end of the current buffer pool.  Upon exiting the directory level, its
-// entries are popped off the top of the buffer stack.  Because memory needs
-// to be conserved and the large variance in file name lengths (1-255 chars),
-// entries are variable length with the next placed immediately after the
-// previous.  Because this is not an array and it needs to be sorted, an
-// index area exists that contains an entry for each directory entry
-// containing the BufferPool address of the entry which it represents.
-// This provides an indirection to the buffer pool entries that is an array
-// and thus can be sorted.  To access the buffer entries in sorted order, they
-// must be accessed though the index pool.
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// DirEntry support macros
-//-----------------------------------------------------------------------------
-
-struct DirEntry              // directory entry in pool
-{
-   FILETIME                  ftimeLastWrite;       // last written
-   __int64                   cbFile;               // size of file in bytes
-   DWORD                     attrFile;             // file/dir attribute
-   WCHAR                     cFileName[MAX_PATH];  // file/dir name
-};
-
-// note - the following defines the base length of the DirEntry structure,
-// minus the variable element (cFileName).
-// use "LEN_DirEntry+wcslen(FileName)" as allocation length.
-//#define LEN_DirEntry ( sizeof DirEntry - ((sizeof (WCHAR)) * (MAX_PATH-1)) )
-//#define LEN_DirEntry ( offsetof(DirEntry,cFileName) + sizeof (WCHAR) )
-inline size_t CB_DirEntry(size_t ccfilename)  //byte length of DirEntry with ccfilename length
-{
-    return offsetof(DirEntry, cFileName) + (ccfilename + 1) * sizeof(WCHAR);
-}
-
-struct DirIndex
-{
-   BdQueueElement            chain;      // next/prev DirIndex elements on queue
-   DWORD                     availSlots; // DirEntry pointer slots available
-   DWORD                     usedSlots;  // DirEntry pointer slots in use
-   DirEntry                * dirArray[1];// sorted array of directory entries
-};
-
-// base length of DirIndex, minus the variable element (dirArray)
-#define LEN_DirIndex (sizeof DirIndex - sizeof (DirEntry *))
-
-struct DirBlock
-{
-   BdQueueElement            chain;      // next/prev DirBlock elements on queue
-   DirEntry                * hwmEntry;   // beyond last DirEntry used in this block
-   DWORD                     avail;      // bytes available in block
-   DirEntry                  firstEntry; // position for first DirEntry in this block
-};
-
-struct DirBuffer
-{
-   BdQueueAnchor             block;      // anchor for DirBlock queue
-   DirBlock                * currBlock;  // current DirBlock
-   BdQueueAnchor             index;      // anchor for DirIndex queue
-   DirIndex                * currIndex;  // current DirIndex
-};
 
 struct DirOptions
 {
-   __int64                   cbVolTotal;     // total bytes on volume
-   __int64                   cbVolFree;      // total bytes free on volume
-   DWORD                     cbCluster;      // cluster size of volume
-   DWORD                     fsFlags;        // overall process/action/status flags
-   DWORD                     volser;         // unique volume serial number
-   UINT                      driveType;      // drive type from GetDriveType()
-   WCHAR                     fsName[16];     // file system name
-   WCHAR                     apipath[4];     // \\?\ prefix needed to support long paths
-   WCHAR                     path[32768];    // file path after the \\?\ prefix
-   WCHAR                     volName[MAX_PATH];// volume name (drive or UNC)
-   bool                      bUNC;           // UNC form name? UNC\server\share 
-   DirBuffer                 dirBuffer;      // directory buffer
+	__int64           cbVolTotal;		// total bytes on volume
+	__int64           cbVolFree;		// total bytes free on volume
+	DWORD             cbCluster;		// cluster size of volume
+	DWORD             fsFlags;			// overall process/action/status flags
+	DWORD             volser;			// unique volume serial number
+	UINT              driveType;		// drive type from GetDriveType()
+	WCHAR             fsName[16];		// file system name
+	WCHAR             apipath[4];		// \\?\ prefix needed to support long paths
+	WCHAR             path[32768];		// file path after the \\?\ prefix
+	WCHAR             volName[MAX_PATH];// volume name (drive or UNC)
+	bool              bUNC;				// UNC form name? UNC\server\share 
+	DirList           dirList;			// directory entry lists
 };
 
-struct Options                           // main object of system containing processed parms and data structs
+struct Options                          // main object of system containing processed parms and data structs
 {
-   __int64                   bWritten;   // bytes  written for stats display
-   __int64                   spaceMinFree; // space free minimum
-   FileList                * include;    // list of filespecs to include
-   FileList                * exclude;    // list of filespecs to exclude
-   BYTE                    * copyBuffer; // copy buffer - file/dir contents/ACLs
-   long                      statsInterval;// stats display interval (mSec) for MT version
-   long                      spaceInterval;// space free check interval (mSec) for MT version
-// char                      spaceDrive;   // space check drive letter
-   DWORD                     sizeBuffer; // copy buffer size
-   short                     maxLevel;   // max directory recursion level
-   DirOptions                source;     // source options including current path and directory buffer
-   DirOptions                target;     // target options including current path and directory buffer
-   Property                  dir;        // actions for dir/properties
-   Property                  file;       // actions for file/properties
-   DWORD                     fState;     // status flags
-   DWORD                     global;     // global actions
-   Stats                     stats;      // statistics
-   DWORD                     findAttr;   // DosFind attribute
-   DWORD                     sizeDirBuff;// Directory buffer size
-   DWORD                     sizeDirIndex;// Directory index size
-   DWORD                     attrSignif; // mask of significant attributes to compare
-// TEvent                  * evDirGetStart;// event to start overlapped DirGet
-// TEvent                  * evDirGetComplete;// Event that is signalled when overlapped DirGet complete
-   WIN32_STREAM_ID         * unsecure;   // backup stream to unsecure object for deletion
+	__int64           bWritten;			// bytes  written for stats display
+	__int64           spaceMinFree;		// space free minimum
+	FileList        * include;			// list of filespecs to include
+	FileList        * exclude;			// list of filespecs to exclude
+	BYTE            * copyBuffer;		// copy buffer - file/dir contents/ACLs
+	long              statsInterval;	// stats display interval (mSec) for MT version
+	long              spaceInterval;	// space free check interval (mSec) for MT version
+//	char			  spaceDrive;		// space check drive letter
+	DWORD             sizeBuffer;		// copy buffer size
+	short             maxLevel;			// max directory recursion level
+	DirOptions        source;			// source options including current path and directory buffer
+	DirOptions        target;			// target options including current path and directory buffer
+	Property          dir;				// actions for dir/properties
+	Property          file;				// actions for file/properties
+	DWORD             fState;			// status flags
+	DWORD             global;			// global actions
+	Stats             stats;			// statistics
+	DWORD             findAttr;			// DosFind attribute
+	DWORD             sizeDirBuff;		// Directory buffer size
+	DWORD             sizeDirIndex;		// Directory index size
+	DWORD             attrSignif;		// mask of significant attributes to compare
+//	TEvent          * evDirGetStart;	// event to start overlapped DirGet
+//	TEvent          * evDirGetComplete;	// Event that is signalled when overlapped DirGet complete
+	WIN32_STREAM_ID * unsecure;			// backup stream to unsecure object for deletion
 };
 
 //-----------------------------------------------------------------------------

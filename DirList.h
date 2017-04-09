@@ -1,11 +1,12 @@
 /// DirEntry objects are packed consecutively in the buffer.  Note the variable length
-struct DirEntry              // directory entry in pool
+struct DirEntry              // directory entry in lifo buffer
 {
 	FILETIME				ftimeLastWrite;			// last written
 	__int64					cbFile;					// size of file in bytes
 	DWORD					attrFile;				// file/dir attribute
 	WCHAR					cFileName[1];			// file/dir name (varying length at least 1)
-	size_t		ByteLength() { return sizeof *this + wcslen(cFileName) * sizeof cFileName[0]; }
+	size_t		ByteLength() const					// returns byte length of this DirEntry 
+					{ return sizeof *this + (wcslen(cFileName) * sizeof cFileName[0]); }
 };
 
 /// LevelHeader marks the start of each nested directory level.  Provides backchain info to pop off.
@@ -22,21 +23,20 @@ DirList performs directory enumeration for a path.  It holds the DirEntry object
 (both files and directores) in the active nested path for a recursive
 merge-match process to detect differences.  For example, take the following directory structure:
 A
-AA
-AAA
-AAAA
-AAAB
-AAB
-AB
-AC
+  AA
+    AAA
+      AAAA
+      AAAB
+    AAB
+  AB
+  AC
 B
-BA
-BB
-BC
-BD
+  BA
+  BB
+  BC
 C
-CA
-CB
+  CA
+  CB
 This is what have in the buffer when the active path is A/AA/AAA
 A B C - AA AB AC - AAA AAB - AAAA AAAB
 
@@ -61,17 +61,17 @@ class DirList
 
 	void	GrowBuffer();						// Expand the existing m_buffer size
 	bool	PathProcess(size_t p_parentLevel, int p_pathlen);
-	size_t	DirPush(size_t p_levelOffset);
-	void	DirPop(size_t p_levelHeaderOffset);
-	void	DirEntryAdd(WIN32_FIND_DATA const * p_find);
-	void	CreateIndex();			// Creates DirEntry pointer index for sort
-	wchar_t const * GetFilename(size_t p_dirEntryOffset) const { return ((DirEntry *)(m_buffer + p_dirEntryOffset))->cFileName; }
+	size_t	DirPush(size_t p_levelOffset);		// Pushes a new LevelHeader on top of the lifo buffer stack
+	void	DirPop(size_t p_levelHeaderOffset);	// Pops off the top LevelHeader from the lifo buffer stack
+	void	DirEntryAdd(WIN32_FIND_DATA const * p_find);	// Adds a DirEntry to the current level
+	void	CreateIndex();						// Creates DirEntry pointer index for sort
+	wchar_t const * GetFilename(size_t p_dirEntryOffset) const // returns filename from a DirEntryOffset
+				{ return ((DirEntry *)(m_buffer + p_dirEntryOffset))->cFileName; }
 	~DirList() { free(m_buffer); }
 public:
 	DirList(wchar_t * p_path);
 	size_t	DirEntryLength(size_t p_offset) const { return ((DirEntry *)(m_buffer + p_offset))->ByteLength(); }
 	DirEntry const * GetDirEntry(size_t p_offset) const { return (DirEntry *)(m_buffer + p_offset); }
-
 };
 
 
