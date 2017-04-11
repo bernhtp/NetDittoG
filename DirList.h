@@ -1,3 +1,5 @@
+const int MAX_PATHX = 32764;	// max path char length exluding \\?\ long-path prefix	
+
 /// DirEntry objects are packed consecutively in the buffer.  Note the variable length
 struct DirEntry              // directory entry in lifo buffer
 {
@@ -52,16 +54,18 @@ each time unless you know it won't grow in between and thus won't possibly chang
 class DirList
 {
 	friend class DirListEnum;					// used for enumeration of DirEntry objects at a dir level
-	static const size_t			BUFFER_GROW = (1 << 14) * sizeof(size_t);	// buffer size increment
-	BYTE					  * m_buffer;		// MOVEABLE lifo buffer for nested headers, namespaces and indexes
-	size_t						m_LevelHeaderOffset;	// Transient current recursive level of LevelHeader object
-	size_t						m_cbBuffer;		// current buffer size in bytes
-	size_t						m_cbUsed;		// bytes currently used in buffer
-	wchar_t					  * m_path;			// current path being processed
-
+	static const size_t		BUFFER_GROW = (1 << 14) * sizeof(size_t);	// buffer size increment
+	BYTE				  * m_buffer;			// MOVEABLE lifo buffer for nested headers, namespaces and indexes
+	size_t					m_LevelHeaderOffset;// Transient current recursive level of LevelHeader object
+	size_t					m_cbBuffer;			// current buffer size in bytes
+	size_t					m_cbUsed;			// bytes currently used in buffer
+	struct {
+		wchar_t				m_apipath[4];		// \\?\ prefix for m_path - must be contiguous
+		wchar_t				m_path[MAX_PATHX];	// current path being processed
+	};
+	int						m_pathlen;			// char length of the current m_path value
 	void	GrowBuffer();						// Expand the existing m_buffer size
-	bool	PathProcess(size_t p_parentLevel, int p_pathlen);
-	size_t	DirPush(size_t p_levelOffset);		// Pushes a new LevelHeader on top of the lifo buffer stack
+	size_t	DirPush();							// Pushes a new LevelHeader on top of the lifo buffer stack and return its offset
 	void	DirPop(size_t p_levelHeaderOffset);	// Pops off the top LevelHeader from the lifo buffer stack
 	void	DirEntryAdd(WIN32_FIND_DATA const * p_find);	// Adds a DirEntry to the current level
 	void	CreateIndex();						// Creates DirEntry pointer index for sort
@@ -72,6 +76,9 @@ public:
 	DirList(wchar_t * p_path);
 	size_t	DirEntryLength(size_t p_offset) const { return ((DirEntry *)(m_buffer + p_offset))->ByteLength(); }
 	DirEntry const * GetDirEntry(size_t p_offset) const { return (DirEntry *)(m_buffer + p_offset); }
+	DWORD	PathProcess(wchar_t const * p_path);
+	int		PathAppend(wchar_t const * p_pathelement);	// append an element to m_path and return the result length
+	wchar_t const * ApiPath() const { return m_apipath; }	// returns the api path string for \\?\-prefixed operations
 };
 
 
@@ -82,19 +89,8 @@ class DirListEnum
 	size_t const	m_levelOffset;
 	int				m_nCurrIndex;
 public:
-	DirListEnum(DirList * p_dirList, size_t p_levelOffset)
-		: m_dirList(p_dirList), m_levelOffset(p_levelOffset), m_nCurrIndex(0) {};
-	DirEntry const * GetNext();
+	DirListEnum(DirList * p_dirList)
+		: m_dirList(p_dirList), m_levelOffset(p_dirList->m_LevelHeaderOffset), m_nCurrIndex(0) {};
+	DirEntry * GetNext();
 };
 
-/// returns the next DirEntry in this level or nullptr when past end
-DirEntry const * DirListEnum::GetNext()
-{
-	// recompute the address each time because the buffer address can change as it grows
-	LevelHeader const * levelHeader = (LevelHeader *)(m_dirList->m_buffer + m_dirList->m_LevelHeaderOffset);
-	if ( m_nCurrIndex > levelHeader->nDirEntry )
-		return nullptr;
-	size_t const * index = (size_t *)(m_dirList->m_buffer + levelHeader->indexOffset);
-	size_t entryOffset = index[m_nCurrIndex++];
-	return (DirEntry *)(m_dirList->m_buffer + entryOffset);
-}

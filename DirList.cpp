@@ -3,19 +3,21 @@
 #include "DirList.h"
 
 DirList::DirList(wchar_t * p_path)
+	: m_apipath({ L'\\',L'\\',L'?',L'\\'})
 {
 	m_cbBuffer = BUFFER_GROW;
 	m_buffer = (BYTE *)malloc(m_cbBuffer);
 	m_cbUsed = 0;
+	wcscpy_s(m_path, p_path);
 }
 
-/// Pushes a new LevelHeader on top of the lifo buffer stack
-size_t DirList::DirPush(size_t p_parentLevelOffset)
+/// Pushes a new LevelHeader on top of the lifo buffer stack and returns its offset
+size_t DirList::DirPush()
 {
-	m_LevelHeaderOffset = m_cbUsed;
-	LevelHeader * levelHeader = (LevelHeader *)(m_buffer + m_LevelHeaderOffset);
+	LevelHeader * levelHeader = (LevelHeader *)(m_buffer + m_cbUsed);
 	m_cbUsed += sizeof *levelHeader;
-	levelHeader->parentLevelOffset = p_parentLevelOffset;
+	levelHeader->parentLevelOffset = m_LevelHeaderOffset;
+	m_LevelHeaderOffset = m_cbUsed;
 	levelHeader->cbDirEntries = 0;
 	levelHeader->indexOffset = 0;
 	levelHeader->nDirEntry = 0;
@@ -86,7 +88,7 @@ void DirList::CreateIndex()
 	m_cbUsed = new_cbUsed;
 
 	levelHeader->indexOffset = indexOffset;
-	size_t entryOffset = m_LevelHeaderOffset + sizeof(LevelHeader);
+	size_t entryOffset = m_LevelHeaderOffset + sizeof *levelHeader;
 	size_t * index = (size_t *)(m_buffer + indexOffset);
 	for ( size_t * i = index ;  i++;  i < index + levelHeader->nDirEntry )
 	{
@@ -102,26 +104,45 @@ void DirList::CreateIndex()
 }
 
 /// fills the current level of the DirList with FileEntry objects enumerated from the file system path
-bool DirList::PathProcess(size_t p_parentLevel, int p_pathlen)
+DWORD DirList::PathProcess(wchar_t const * p_pathappend)
 {
 	HANDLE					hDir;
 	WIN32_FIND_DATA			findEntry;			// result of Find*File API
 	DWORD					rc = 0;
 	BOOL					bRc;
-	size_t					levelOffset = DirPush(p_parentLevel);
-
-	wcscpy(m_path + p_pathlen, L"\\*");			// set path to include wildcard for Find*File
+	size_t					levelOffset = DirPush();
+	int						pathlen = PathAppend(p_pathappend);
 												// iterate through directory entries and stuff them in DirBuffer
 	for ( bRc = ((hDir = FindFirstFile(m_path, &findEntry)) != INVALID_HANDLE_VALUE),
-				m_path[p_pathlen] = L'\0';		// restore path -- remove \* -
+				m_path[pathlen] = L'\0';		// restore path -- remove \* -
 		bRc;
 		bRc = FindNextFile(hDir, &findEntry) )
 	{
 		if ( wcscmp(findEntry.cFileName, L".") || (findEntry.cFileName, L"..") )
 			continue;							// ignore directory names '.' and '..'
-		// add filtering code
+		//?? add filtering code
 		DirEntryAdd(&findEntry);
 	}
 	rc = GetLastError();
-	return rc == ERROR_NO_MORE_FILES;
+	return rc == ERROR_NO_MORE_FILES ? 0 : rc;
+}
+
+/// append an element to m_path and return the result length
+int	DirList::PathAppend(wchar_t const * p_pathelement)
+{
+	wcscat_s(m_path, MAX_PATHX, L"\\");
+	wcscat_s(m_path, MAX_PATHX, p_pathelement);
+	return wcslen(m_path);
+}
+
+/// returns the next DirEntry in this level or nullptr when past end
+DirEntry * DirListEnum::GetNext()
+{
+	// recompute the address each time because the buffer address can change as it grows
+	LevelHeader const * levelHeader = (LevelHeader *)(m_dirList->m_buffer + m_dirList->m_LevelHeaderOffset);
+	if ( m_nCurrIndex > levelHeader->nDirEntry )
+		return nullptr;
+	size_t const * index = (size_t *)(m_dirList->m_buffer + levelHeader->indexOffset);
+	size_t entryOffset = index[m_nCurrIndex++];
+	return (DirEntry *)(m_dirList->m_buffer + entryOffset);
 }

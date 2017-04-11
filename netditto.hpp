@@ -159,7 +159,6 @@ typedef struct
    StatsCommon               target;
 }                         Stats;
 
-
 struct DirOptions
 {
 	__int64           cbVolTotal;		// total bytes on volume
@@ -170,7 +169,7 @@ struct DirOptions
 	UINT              driveType;		// drive type from GetDriveType()
 	WCHAR             fsName[16];		// file system name
 	WCHAR             apipath[4];		// \\?\ prefix needed to support long paths
-	WCHAR             path[32768];		// file path after the \\?\ prefix
+	WCHAR             path[MAX_PATHX];	// file path after the \\?\ prefix
 	WCHAR             volName[MAX_PATH];// volume name (drive or UNC)
 	bool              bUNC;				// UNC form name? UNC\server\share 
 	DirList           dirList;			// directory entry lists
@@ -361,11 +360,6 @@ DWORD _stdcall                            // ret-0=not exist, 1=exists, 2=error
    PathDirExists(
       WCHAR                * path        ,// i/o-path to fixup and test
       DirEntry            ** dirEntry     // out-NULL if not found
-   );
-
-short _stdcall                            // ret-0=success
-   DirBufferConstruct(
-      DirBuffer            * dir          // out-directory buffer
    );
 
 void _stdcall                             // ret-0=success
