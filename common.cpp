@@ -9,21 +9,15 @@ Updates     -
 ===============================================================================
 */
 
-//#ifdef USE_STDAFX
-//#   include "stdafx.h"
-//#   include "rpc.h"
-//#else
 #include <windows.h>
-//#endif
 
 #include <stdio.h>
 #include <time.h>
 #include <lm.h>
 
-
 #include "Common.hpp"
 #include "Err.hpp"
-//#include "UString.hpp"
+
 
 wchar_t *
    TTime::YMD_HMS(
@@ -52,6 +46,32 @@ WCHAR *
    _swprintf(dateStr, L"%02d%02d%02d",
                 tm_time->tm_year, tm_time->tm_mon+1,tm_time->tm_mday);
    return dateStr;
+}
+
+
+wchar_t * _stdcall						 // ret-DDDdHH:MM:SS elapsed time str
+ElapsedTimeStr(
+	long				secs			,// in -number of seconds
+	wchar_t				str[]			 // out-return buffer string
+)
+{
+	int					h, m, s;
+
+	s = secs % 60;                // ss = number of SS seconds
+	secs /= 60;                            // secs = number of minutes
+
+	m = secs % 60;                // mm = number of MM minutes
+	secs /= 60;                            // secs = number of hours
+
+	h = secs % 24;                // hh = number of HH hourcs
+	secs /= 24;                            // secs = number of days
+
+	if (secs == 0)                       // if no days
+		_swprintf(str, L"    %2d:%02d:%02d", h, m, s);
+	else
+		_swprintf(str, L"%3ldd%2d:%02d:%02d", secs, h, m, s);
+
+	return str;
 }
 
 
@@ -129,3 +149,28 @@ WCHAR * __stdcall                          // ret-3rd parm message string
 
    return msg;
 }
+
+
+int _stdcall
+CompareFILETIME(
+	FILETIME               f1			,// in -file time 1
+	FILETIME               f2            // in -file time 2
+)
+{
+	if (f1.dwHighDateTime == f2.dwHighDateTime)
+		return f1.dwLowDateTime - f2.dwLowDateTime;
+	return f1.dwHighDateTime - f2.dwHighDateTime;
+}
+
+
+int _stdcall
+CompareFILETIME(
+	FILETIME               f1			,// in -file time 1
+	FILETIME               f2            // in -file time 2
+);
+
+WCHAR * _stdcall                           // ret-result buffer conversion of str
+CommaStr(
+	WCHAR                  result[]		,// out-result buffer
+	WCHAR          const   str[]         // in -string to be converted
+);

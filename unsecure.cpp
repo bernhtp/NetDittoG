@@ -20,7 +20,6 @@
 #include <direct.h>
 
 #include "netditto.hpp"
-#include "util32.hpp"
 
 
 // Create a SID for the well-known Everyone group.
@@ -213,21 +212,21 @@ BOOL
    
    cbWrite = GetSecurityDescriptorLength((SECURITY_DESCRIPTOR *)gOptions.unsecure->cStreamName);
 /*
-   if ( !SetFileSecurity(gOptions.target.apipath, 
+   if ( !SetFileSecurity(gTarget.ApiPath(), 
                          DACL_SECURITY_INFORMATION, 
                          (SECURITY_DESCRIPTOR *)gOptions.unsecure->cStreamName) )
    {
       rc = GetLastError();
       if ( rc != ERROR_ACCESS_DENIED )
          err.SysMsgWrite(23807, rc, "SetFileSecurity(%s)=%ld ", 
-                                    gOptions.target.path, rc);
+                                    gTarget.Path(), rc);
    }
    else
       return TRUE;
 */
    
    // open the file/dir for restore.
-   hTgt = CreateFile(gOptions.target.apipath, 
+   hTgt = CreateFile(gTarget.ApiPath(), 
                      GENERIC_WRITE | WRITE_OWNER | WRITE_DAC,
                      FILE_SHARE_READ,
                      NULL, 
@@ -243,12 +242,12 @@ BOOL
       {
          case ERROR_SHARING_VIOLATION:
             err.MsgWrite(20161, L"Target file in use - bypassed - %s", 
-                                gOptions.target.path);
+                                gTarget.Path());
             break;
          case ERROR_ACCESS_DENIED:
          default:
             err.SysMsgWrite(30177, rc, L"DelOpenWb(%s,%lx)=%ld ", 
-                                   gOptions.target.path,
+                                   gTarget.Path(),
                                    tgtEntry->attrFile,
                                    rc);
       }
@@ -266,7 +265,7 @@ BOOL
    {
       rc = GetLastError();
       err.SysMsgWrite(34877, rc, L"BackupWriteD(%s,%ld)=%ld ",
-                             gOptions.target.path,
+                             gTarget.Path(),
                              IsValidSecurityDescriptor((SECURITY_DESCRIPTOR *)gOptions.unsecure->cStreamName), 
                              rc); 
       

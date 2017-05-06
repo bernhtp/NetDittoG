@@ -17,7 +17,6 @@
 #include <malloc.h>
 
 #include "netditto.hpp"
-#include "util32.hpp"
 
 static DWORD const ReadKey = 0;
 static DWORD const WriteKey = 1;
@@ -176,7 +175,7 @@ DWORD _stdcall
          // If the bytes read is less than that requested, it is the last block.
          // If the target of the last block is a UNC, we want to write it buffered
          // because unbuffered mode requires full block writes.
-         if ( nBytes < COPY_BUFFER_SIZE  &&  !gOptions.target.bUNC )
+         if ( nBytes < COPY_BUFFER_SIZE  &&  !gTarget.IsUNC() )
          {
             lastIO =  ioCompleted;
             nPendingIO--;
@@ -235,7 +234,7 @@ DWORD _stdcall
    if ( lastIO )
    {
       CloseHandle(*hTgt);
-      *hTgt = CreateFile(gOptions.target.apipath,
+      *hTgt = CreateFile(gTarget.ApiPath(),
                         GENERIC_WRITE | GENERIC_READ,
                         FILE_SHARE_READ | FILE_SHARE_WRITE,
                         NULL,
@@ -270,13 +269,13 @@ DWORD _stdcall
       {
          rc = GetLastError();
          err.SysMsgWrite(30109, rc, L"Last Write(%s)=%ld ",
-                                    gOptions.target.path, rc);
+                                    gTarget.Path(), rc);
       }
       gOptions.bWritten += nBytes;
    }
 // err.MsgWrite(1, "%.2fMB/sec (%s)",
 //        (float)((__int64)tgtSize.QuadPart) / 1000 / (float)(GetTickCount()-s),
-//        gOptions.target.path);
+//        gTarget.Path());
 
    return 0;
 }

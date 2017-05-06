@@ -142,16 +142,11 @@
   <ItemGroup>
     <ClCompile Include="commastr.cpp" />
     <ClCompile Include="common.cpp" />
-    <ClCompile Include="construct.cpp" />
-    <ClCompile Include="dirgetd.cpp" />
     <ClCompile Include="display.cpp" />
     <ClCompile Include="err.cpp" />
-    <ClCompile Include="etimestr.cpp" />
     <ClCompile Include="filecopy.cpp" />
     <ClCompile Include="filecopyasync.cpp" />
     <ClCompile Include="filter.cpp" />
-    <ClCompile Include="ftimecmp.cpp" />
-    <ClCompile Include="getinfo.cpp" />
     <ClCompile Include="match.cpp" />
     <ClCompile Include="mtsupp.cpp" />
     <ClCompile Include="netcommon.cpp" />
@@ -171,14 +166,12 @@
   <ItemGroup>
     <ClInclude Include="common.hpp" />
     <ClInclude Include="err.hpp" />
-    <ClInclude Include="mcsmsg.hpp" />
     <ClInclude Include="netcommon.hpp" />
     <ClInclude Include="netditto.hpp" />
     <ClInclude Include="security.hpp" />
     <ClInclude Include="TList.h" />
     <ClInclude Include="tsync.hpp" />
     <ClInclude Include="ustring.hpp" />
-    <ClInclude Include="util32.hpp" />
     <ClInclude Include="viosupp.hpp" />
     <ClInclude Include="wildmatch.hpp" />
   </ItemGroup>

@@ -21,19 +21,10 @@
     <ClCompile Include="common.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="construct.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="dirgetd.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="display.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="err.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="etimestr.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="filecopy.cpp">
@@ -43,12 +34,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="filter.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ftimecmp.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="getinfo.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="match.cpp">
@@ -104,9 +89,6 @@
     <ClInclude Include="err.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="mcsmsg.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="netcommon.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -120,9 +102,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ustring.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="util32.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="viosupp.hpp">

@@ -17,10 +17,11 @@ Updates     -
 #endif
 
 #define SECS(n) (n * 1000)
-#define DIM(array) (sizeof (array) / sizeof (array[0]))
+#define DIM(x) (sizeof (x) / sizeof ((x)[0]))	// gives the number of elements in an array
 
-#define safecopy(trg,src) (_wcsncpy(trg,src,DIM(trg)))
-#define  UnNull(ptr)  ( (ptr) ? (ptr) : (WCHAR *) L"" )
+__int64	_inline INT64R(int lo, __int64 hi) { return (hi << 32) + lo; } // converts a split lo/hi int into __int64
+
+#define INT64LE(lo) *(__int64 *)&lo	// for Litte-Endian machines, turns contiguous lowpart-hipart 32-bit pairs into __int64
 
 class TTime
 {
@@ -62,6 +63,12 @@ public:
    TTime                operator-=(TTime t)       { return TTime(tTime =- t.tTime); };
 };
 
+wchar_t * _stdcall						 // ret-DDDdHH:MM:SS elapsed time str
+ElapsedTimeStr(
+	long				secs			,// in -number of seconds
+	wchar_t				str[]			 // out-return buffer string
+	);
+
 __int64                                    // ret-numeric value of string
    TextToInt64(
       WCHAR          const * str          ,// in-string value to parse
@@ -77,3 +84,8 @@ WCHAR * __stdcall                          // ret-3rd parm message string
       WCHAR                * msg           // out-returned message text
    );
 
+WCHAR * _stdcall						 // ret-result buffer conversion of str
+CommaStr(
+	WCHAR                  result[]		,// out-result buffer - must be large enough for result with commas
+	WCHAR const            str[]         // in -string to be converted
+);

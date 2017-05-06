@@ -391,16 +391,16 @@ static void
 // Parses/processes a single parm argument string from the command line
 //-----------------------------------------------------------------------------
 static
-short _stdcall                            // ret-0=success
+DWORD _stdcall                            // ret-0=success
    ParmArgProcess(
       WCHAR   const        * currArg     ,// in -current argument to process
       USHORT               * state        // i/o-state flags
    )
 {
-   short                     rc = 0;
+   DWORD                     rc = 0;
    BOOL                      negative = 0;
    DWORD                     globalChangeMask = 0;
-   WCHAR   const           * errMsg;
+   WCHAR const             * errMsg;
 
    switch ( currArg[0] )
    {
@@ -462,15 +462,6 @@ short _stdcall                            // ret-0=success
                   globalChangeMask = OPT_GlobalHidden;
                else if ( !wcscmp(currArg+1, L"m") )
                   globalChangeMask = OPT_GlobalMakeTgt;
-               else if ( !wcsncmp(currArg+1, L"m=", 2) )
-               {
-                  gOptions.sizeDirBuff = (DWORD)TextToInt64(currArg+3, 10000, 50000000, &errMsg);
-                  if ( errMsg )
-                  {
-                     err.MsgWrite(ErrE, L"%s - %s", currArg, errMsg);
-                     rc = 1;
-                  }
-               }
                else if ( !wcscmp(currArg+1, L"n") )
                   globalChangeMask = OPT_GlobalNewer;
                else if ( !wcscmp(currArg+1, L"namecase") )
@@ -533,22 +524,22 @@ short _stdcall                            // ret-0=success
                gOptions.global |= globalChangeMask;   // turn on option bit
          break;
       default:
-         if ( !gOptions.source.path[0] )
+         if ( !*gSource.Path() )
          {
             if ( wcscmp(currArg, L"-") )
-               rc = (short)VolumeGetInfo(currArg, &gOptions.source);
+               rc = gSource.NormalizeAndSetPath(currArg, false);
             else
-               wcscpy(gOptions.source.path, L"-");
+               gSource.SetPath(L"-");
          }
-         else if ( !gOptions.target.path[0] )
+         else if ( !gTarget.Path()[0] )
          {
-            rc = (short)VolumeGetInfo(currArg, &gOptions.target);
+			 rc = gSource.NormalizeAndSetPath(currArg, gOptions.global & OPT_GlobalMakeTgt);
             // if source is null, we copy the target options to it because some
             // behavior is dependant on this being filled in.
-            if ( !wcscmp(gOptions.source.path, L"-") )
+            if ( !wcscmp(gSource.Path(), L"-") )
             {
-               gOptions.source = gOptions.target;
-               wcscpy(gOptions.source.path, L"-");
+//             gSource = gTarget;
+               gSource.SetPath(L"-");
             }
          }
          else
@@ -569,13 +560,13 @@ short _stdcall                            // ret-0=success
 // Parses/processes a single parm argument string from the command line
 //-----------------------------------------------------------------------------
 static
-short _stdcall                            // ret-0=success
+DWORD _stdcall                            // ret-0=success
    ParmFileIter(
       WCHAR   const        * fileName    ,// in -filename containing options
       USHORT               * state        // i/o-state flags
    )
 {
-   short                     rc,
+   DWORD                     rc,
                              rcMax = 0;
    FILE                    * fileParm;
    WCHAR                     line[256],
@@ -617,69 +608,66 @@ short _stdcall                            // ret-0=success
 //-----------------------------------------------------------------------------
 // Parses the command line parameter string
 //-----------------------------------------------------------------------------
-short _stdcall                            // ret-0=success
-   ParmParse(
-      WCHAR   const       ** argv         // in -argument values
-   )
+DWORD _stdcall                            // ret-0=success
+	ParmParse(
+		WCHAR const       ** argv         // in -argument values
+	)
 {
-   WCHAR   const           * currArg;
-   short                     rc,
-                             rcMax = 0;
-   USHORT                    state = 0;
+	WCHAR const			  * currArg;
+	DWORD					rc,
+							rcMax = 0;
+	USHORT                  state = 0;
 
-   memset(&gOptions, '\0', sizeof gOptions); // initialize all options
-   gOptions.file.contents  = OPT_PropActionAll;
-   gOptions.file.attr      = OPT_PropActionAll;
-   gOptions.file.perms     = OPT_PropActionNone;
-   gOptions.dir.contents   = OPT_PropActionAll;
-   gOptions.sizeDirBuff    = DIR_BlockSize;
-   gOptions.sizeDirIndex   = DIR_IndexSize;
-   gOptions.attrSignif     = FILE_ATTRIBUTE_HIDDEN
-                           | FILE_ATTRIBUTE_READONLY
-                           | FILE_ATTRIBUTE_SYSTEM
-                           | FILE_ATTRIBUTE_COMPRESSED;
+	memset(&gOptions, '\0', sizeof gOptions); // initialize all options
+	gOptions.file.contents  = OPT_PropActionAll;
+	gOptions.file.attr      = OPT_PropActionAll;
+	gOptions.file.perms     = OPT_PropActionNone;
+	gOptions.dir.contents   = OPT_PropActionAll;
+	gOptions.attrSignif     = FILE_ATTRIBUTE_HIDDEN
+							| FILE_ATTRIBUTE_READONLY
+							| FILE_ATTRIBUTE_SYSTEM
+							| FILE_ATTRIBUTE_COMPRESSED;
 
-   gOptions.dir.attr       = OPT_PropActionNone
-                           | OPT_PropActionAll
-                              ;
-   gOptions.dir.perms      = OPT_PropActionAll;
+	gOptions.dir.attr       = OPT_PropActionNone
+							| OPT_PropActionAll
+								;
+	gOptions.dir.perms      = OPT_PropActionAll;
 
-   gOptions.global         = OPT_GlobalReadOnly
-                           | OPT_GlobalOptimize
-                           | OPT_GlobalNewer
-                           | OPT_GlobalChange
-                           | OPT_GlobalHidden
-                           | OPT_GlobalDirTime
-//                         | OPT_GlobalDispMatches  // default changed to /-sm
-                           | OPT_GlobalDispDetail
-                           | OPT_GlobalNameCase;
-   gOptions.maxLevel = 255;
+	gOptions.global         = OPT_GlobalReadOnly
+							| OPT_GlobalOptimize
+							| OPT_GlobalNewer
+							| OPT_GlobalChange
+							| OPT_GlobalHidden
+							| OPT_GlobalDirTime
+	//                         | OPT_GlobalDispMatches  // default changed to /-sm
+							| OPT_GlobalDispDetail
+							| OPT_GlobalNameCase;
+	gOptions.maxLevel = 255;
 
-   if ( !argv[1] )
-      Usage(false);
-   else
-   {
-      while ( currArg = *++argv )
-      {
-         if ( currArg[0] == L'@' )
-            rc = ParmFileIter(currArg+1, &state);
-         else
-            rc = ParmArgProcess(currArg, &state);
-         rcMax = max(rcMax, rc);
-      }
+	if ( !argv[1] )
+		Usage(false);
+	else
+	{
+		while ( currArg = *++argv )
+		{
+			if ( currArg[0] == L'@' )
+				rc = ParmFileIter(currArg+1, &state);
+			else
+				rc = ParmArgProcess(currArg, &state);
+			rcMax = max(rcMax, rc);
+		}
 
-      if ( !gOptions.source.path[0] )
-      {
-         rcMax = 2;
-      }
-      else if ( !gOptions.target.path[0] )
-      {
-         rc = (short)VolumeGetInfo(L".", &gOptions.target);
-         rcMax = max(rc, rcMax);
-      }
-   }
-
-   return rcMax;
+		if ( !gSource.Path()[0] )
+		{
+			rcMax = 2;
+		}
+		else if ( !gTarget.Path()[0] )
+		{
+			rc = gTarget.NormalizeAndSetPath(L".", false);
+			rcMax = max(rc, rcMax);
+		}
+	}
+	return rcMax;
 }
 
 
@@ -823,8 +811,8 @@ DWORD _stdcall                            // ret-number of warnings/fixes
 {
    DWORD                     nFix = 0;
 
-   // if either source or target don't support ACLs
-   if ( !((gOptions.source.fsFlags | gOptions.target.fsFlags) & FS_PERSISTENT_ACLS) )
+   // if neither source or target don't support ACLs
+   if ( !((gSource.GetFSFlags() | gTarget.GetFSFlags()) & FS_PERSISTENT_ACLS) )
    {
       if ( gOptions.global & OPT_GlobalBackup )
       {
@@ -844,7 +832,7 @@ DWORD _stdcall                            // ret-number of warnings/fixes
    }
 
    // if either source or target don't support ACLs
-   if ( !(gOptions.source.fsFlags & gOptions.target.fsFlags & FS_FILE_COMPRESSION) )
+   if ( !(gSource.GetFSFlags() & gTarget.GetFSFlags() & FS_FILE_COMPRESSION) )
    {
       if ( gOptions.attrSignif & FILE_ATTRIBUTE_COMPRESSED )
       {

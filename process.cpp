@@ -18,7 +18,6 @@
 
 #include "netditto.hpp"
 #include <winioctl.h>
-#include "util32.hpp"
 
 
 //-----------------------------------------------------------------------------
@@ -49,7 +48,7 @@ BOOL
          // first see if we need to open source file or dir
          if ( hSrc == INVALID_HANDLE_VALUE )
          {
-            handle = CreateFile(gOptions.source.apipath,
+            handle = CreateFile(gSource.ApiPath(),
                                 GENERIC_READ,
                                 FILE_SHARE_READ | FILE_SHARE_WRITE,
                                 NULL,
@@ -60,7 +59,7 @@ BOOL
             {
                rc = GetLastError();
                err.SysMsgWrite(ErrS, rc, L"CreateFileGC(%s)=%ld ",
-                                     gOptions.source.path, rc);
+                                     gSource.Path(), rc);
                return FALSE;
             }
          }
@@ -78,7 +77,7 @@ BOOL
          {
             rc = GetLastError();
             err.SysMsgWrite(ErrS, rc, L"Get compression(%hx,%s)=%ld ",
-                                  compressType, gOptions.source.path, rc);
+                                  compressType, gSource.Path(), rc);
             compressType = COMPRESSION_FORMAT_DEFAULT;
          }
 
@@ -95,8 +94,8 @@ BOOL
         || gOptions.global & (OPT_GlobalBackup | OPT_GlobalBackupForce) )
          openMode = FILE_FLAG_BACKUP_SEMANTICS;
       if ( attr & FILE_ATTRIBUTE_READONLY )
-         SetFileAttributes(gOptions.target.apipath, FILE_ATTRIBUTE_NORMAL);
-      handle = CreateFile(gOptions.target.apipath,
+         SetFileAttributes(gTarget.ApiPath(), FILE_ATTRIBUTE_NORMAL);
+      handle = CreateFile(gTarget.ApiPath(),
                         FILE_READ_DATA | FILE_WRITE_DATA,
                         FILE_SHARE_READ | FILE_SHARE_WRITE,
                         NULL,
@@ -107,7 +106,7 @@ BOOL
       {
          rc = GetLastError();
          err.SysMsgWrite(ErrS, rc, L"CreateFileSC(%hx,%s)=%ld ",
-                               compressType, gOptions.target.path, rc);
+                               compressType, gTarget.Path(), rc);
          return FALSE;
       }
    }
@@ -125,7 +124,7 @@ BOOL
    {
       rc = GetLastError();
       err.SysMsgWrite(ErrS, rc, L"Set compression(%hd,%s)=%ld ",
-                                compressType, gOptions.target.path, rc);
+                                compressType, gTarget.Path(), rc);
    }
 
    // only close if we had to open it for this operation, else leave it open
@@ -133,7 +132,7 @@ BOOL
       CloseHandle(handle);
 
    if ( attr & FILE_ATTRIBUTE_READONLY )
-      SetFileAttributes(gOptions.target.apipath, attr);
+      SetFileAttributes(gTarget.ApiPath(), attr);
 
    return TRUE;
 }
@@ -148,14 +147,14 @@ DWORD
    WCHAR                     newName[_MAX_PATH];
    size_t                    len;
 
-   len = wcslen(gOptions.target.path) - wcslen(srcEntry->cFileName);
-   wcsncpy(newName, gOptions.target.path, len);
+   len = wcslen(gTarget.Path()) - wcslen(srcEntry->cFileName);
+   wcsncpy(newName, gTarget.Path(), len);
    wcscpy(newName+len, srcEntry->cFileName);
-   if ( !MoveFile(gOptions.target.apipath, newName) )
+   if ( !MoveFile(gTarget.ApiPath(), newName) )
    {
       rc = GetLastError();
       err.SysMsgWrite(ErrE, L"Rename(%s,%s)=%ld ",
-                            gOptions.target.path, newName, rc);
+                            gTarget.Path(), newName, rc);
    }
    return rc;
 }
@@ -183,14 +182,14 @@ DWORD _stdcall
    {
       if ( tgtEntry->attrFile & FILE_ATTRIBUTE_READONLY )
          // make R/W if R/O
-         if ( !SetFileAttributes(gOptions.target.apipath, FILE_ATTRIBUTE_NORMAL) )
+         if ( !SetFileAttributes(gTarget.ApiPath(), FILE_ATTRIBUTE_NORMAL) )
          {
             rc = GetLastError();
             err.SysMsgWrite(20628, rc, L"SetDirAttributes(%s)=%ld ",
-                                       gOptions.target.path, rc);
+                                       gTarget.Path(), rc);
             return rc;
          }
-      if ( !RemoveDirectory(gOptions.target.apipath) )
+      if ( !RemoveDirectory(gTarget.ApiPath()) )
       {
          rc = GetLastError();
          if ( rc == ERROR_ACCESS_DENIED
@@ -198,7 +197,7 @@ DWORD _stdcall
          {
             if ( UnsecureForDelete(tgtEntry) )
             {
-               if ( !RemoveDirectory(gOptions.target.apipath) )
+               if ( !RemoveDirectory(gTarget.ApiPath()) )
                   rc = GetLastError();
                else
                   rc = 0;
@@ -208,7 +207,7 @@ DWORD _stdcall
          }
          if ( rc )
             err.SysMsgWrite(30204, rc, L"RemoveDirectory(%s)=%ld ",
-                                       gOptions.target.path, rc);
+                                       gTarget.Path(), rc);
          return rc;
       }
    }
@@ -233,11 +232,11 @@ DWORD _stdcall
    log->contents = L'M';
    if ( gOptions.global & OPT_GlobalChange )
    {
-      if ( !CreateDirectory(gOptions.target.apipath, NULL) )
+      if ( !CreateDirectory(gTarget.ApiPath(), NULL) )
       {
          rc = GetLastError();
          err.SysMsgWrite(30201, rc, L"CreateDirectory(%s)=%ld ",
-                                    gOptions.target.path, rc);
+                                    gTarget.Path(), rc);
          return rc;
       }
    }
@@ -295,14 +294,14 @@ DWORD _stdcall
       {
          if ( tgtEntry->attrFile & FILE_ATTRIBUTE_READONLY )
          {
-            if ( !SetFileAttributes(gOptions.target.apipath, FILE_ATTRIBUTE_NORMAL) )
+            if ( !SetFileAttributes(gTarget.ApiPath(), FILE_ATTRIBUTE_NORMAL) )
             {
                rc = GetLastError();
                err.SysMsgWrite(30638, rc, L"SetFileAttributesN(%s)=%ld ",
-                                          gOptions.target.path, rc);
+                                          gTarget.Path(), rc);
             }
          }
-         hDir = CreateFile(gOptions.target.apipath,
+         hDir = CreateFile(gTarget.ApiPath(),
                            GENERIC_WRITE | GENERIC_READ,
                            FILE_SHARE_READ | FILE_SHARE_WRITE,
                            NULL,
@@ -313,7 +312,7 @@ DWORD _stdcall
          {
             rc = GetLastError();
             err.SysMsgWrite(20629, rc, L"CreateFileTC(%s)=%ld ",
-                                       gOptions.target.path, rc);
+                                       gTarget.Path(), rc);
          }
          else
          {
@@ -321,7 +320,7 @@ DWORD _stdcall
             {
                rc = GetLastError();
                err.SysMsgWrite(20630, rc, L"SetFileTime(%s)=%ld ",
-                                          gOptions.target.path, rc);
+                                          gTarget.Path(), rc);
             }
             if ( attrDiff & FILE_ATTRIBUTE_COMPRESSED )  // significant compression attribute different?
             {
@@ -338,12 +337,12 @@ DWORD _stdcall
          {
             // Don't do this if only attribute difference is compression because
             // this won't change it -- the next code block will.
-            if ( !SetFileAttributes(gOptions.target.apipath,
+            if ( !SetFileAttributes(gTarget.ApiPath(),
                                     srcEntry->attrFile & ~FILE_ATTRIBUTE_DIRECTORY) )
             {
                rc = GetLastError();
                err.SysMsgWrite(20628, rc, L"SetFileAttributes(%s)=%ld ",
-                                          gOptions.target.path, rc);
+                                          gTarget.Path(), rc);
             }
          }
          if ( attrDiff & FILE_ATTRIBUTE_COMPRESSED )  // significant compression attribute different?
@@ -410,7 +409,7 @@ DWORD _stdcall
    }
    if ( gOptions.global & OPT_GlobalDispDetail )
       if ( gOptions.global & OPT_GlobalDispMatches || wcsncmp((WCHAR*)&log, L"   ", 3))
-         err.MsgWrite(0, L" %-3.3s %s", &log, gOptions.target.path);
+         err.MsgWrite(0, L" %-3.3s %s", &log, gTarget.Path());
    return rc;
 }
 
@@ -444,7 +443,7 @@ DWORD _stdcall
    }
    if ( gOptions.global & OPT_GlobalDispDetail )
       if ( gOptions.global & OPT_GlobalDispMatches || wcsncmp((WCHAR*)&log, L"   ", 3) )
-         err.MsgWrite(0, L" %-3.3s %s", &log, gOptions.target.path);
+         err.MsgWrite(0, L" %-3.3s %s", &log, gTarget.Path());
 
    return rc;
 }
@@ -460,7 +459,7 @@ void _stdcall
    )
 {
    err.MsgWrite(30221, L"Source not directory but target is (%s)",
-                       gOptions.target.path);
+                       gTarget.Path());
 }
 
 
@@ -474,7 +473,7 @@ void _stdcall
    )
 {
    err.MsgWrite(30222, L"Target not directory but source is (%s)",
-                        gOptions.target.path);
+                        gTarget.Path());
 }
 
 
@@ -505,30 +504,30 @@ DWORD _stdcall
       }
       else
       {
-         hDir = CreateFile(gOptions.target.apipath, GENERIC_WRITE | GENERIC_WRITE,
+         hDir = CreateFile(gTarget.ApiPath(), GENERIC_WRITE | GENERIC_WRITE,
                            FILE_SHARE_READ, NULL, OPEN_EXISTING,
                            FILE_FLAG_BACKUP_SEMANTICS, 0);
          if ( hDir == INVALID_HANDLE_VALUE )
          {
             rc = GetLastError();
-            err.SysMsgWrite(30630, rc, L"CreateFileDirTC(%s)=%ld ", gOptions.target.path, rc);
+            err.SysMsgWrite(30630, rc, L"CreateFileDirTC(%s)=%ld ", gTarget.Path(), rc);
          }
          else
          {
             if ( !SetFileTime(hDir, NULL, NULL, &srcEntry->ftimeLastWrite) )
             {
                rc = GetLastError();
-               err.SysMsgWrite(20630, rc, L"SetFileTime(%s)=%ld ", gOptions.target.path, rc);
+               err.SysMsgWrite(20630, rc, L"SetFileTime(%s)=%ld ", gTarget.Path(), rc);
             }
             CloseHandle(hDir);
          }
 
-         if ( !SetFileAttributes(gOptions.target.apipath, srcEntry->attrFile
+         if ( !SetFileAttributes(gTarget.ApiPath(), srcEntry->attrFile
                                                      & ~FILE_ATTRIBUTE_DIRECTORY) )
          {
             rc = GetLastError();
             err.SysMsgWrite(20631, rc, L"SetFileAttributes(%s)=%ld ",
-                                       gOptions.target.path, rc);
+                                       gTarget.Path(), rc);
          }
       }
    }
@@ -558,7 +557,7 @@ DWORD _stdcall
       else
          rc = FileCopy(srcEntry, NULL);
       if ( rc )
-         err.MsgWrite(203, L"File copy bypassed %s", gOptions.target.path);
+         err.MsgWrite(203, L"File copy bypassed %s", gTarget.Path());
    }
    return rc;
 }
@@ -582,21 +581,21 @@ DWORD _stdcall
       // if file R/O, change to R/W
       if ( tgtEntry->attrFile & FILE_ATTRIBUTE_READONLY )
       {
-         if ( !SetFileAttributes(gOptions.target.apipath, FILE_ATTRIBUTE_NORMAL) )
+         if ( !SetFileAttributes(gTarget.ApiPath(), FILE_ATTRIBUTE_NORMAL) )
          {
             rc = GetLastError();
-            err.SysMsgWrite(30208, rc, L"SetFileAttributes(%s)=%ld ", gOptions.target.path, rc);
+            err.SysMsgWrite(30208, rc, L"SetFileAttributes(%s)=%ld ", gTarget.Path(), rc);
             return rc;
          }
       }
-      if ( !DeleteFile(gOptions.target.apipath) )
+      if ( !DeleteFile(gTarget.ApiPath()) )
       {
          rc = GetLastError();
          if ( rc == ERROR_ACCESS_DENIED  &&  gOptions.global & OPT_GlobalBackup )
          {
             if ( UnsecureForDelete(tgtEntry) )
             {
-               if ( !DeleteFile(gOptions.target.apipath) )
+               if ( !DeleteFile(gTarget.ApiPath()) )
                   rc = GetLastError();
                else
                   rc = 0;
@@ -604,7 +603,7 @@ DWORD _stdcall
          }
          if ( rc )
             err.SysMsgWrite(30204, rc, L"DeleteFile(%s)=%ld ",
-                                       gOptions.target.path, rc);
+                                       gTarget.Path(), rc);
          return rc;
       }
    }
@@ -702,11 +701,11 @@ DWORD _stdcall
             {
                if ( attrDiff & ~FILE_ATTRIBUTE_COMPRESSED )
                {
-                  if ( !SetFileAttributes(gOptions.target.apipath, srcEntry->attrFile) )
+                  if ( !SetFileAttributes(gTarget.ApiPath(), srcEntry->attrFile) )
                   {
                      rc = GetLastError();
                      err.SysMsgWrite(20101, rc, L"SetFileAttributes(%s)=%ld ",
-                                                gOptions.target.path, rc);
+                                                gTarget.Path(), rc);
                   }
                }
                if ( attrDiff & FILE_ATTRIBUTE_COMPRESSED )  // significant compression attribute different?
@@ -793,6 +792,6 @@ DWORD _stdcall
 
    if ( gOptions.global & OPT_GlobalDispDetail )
       if ( gOptions.global & OPT_GlobalDispMatches || wcsncmp((WCHAR*)&log, L"   ", 3) )
-         err.MsgWrite(0, L" %-3.3s %s", &log, gOptions.target.path);
+         err.MsgWrite(0, L" %-3.3s %s", &log, gTarget.Path());
    return rc;
 }

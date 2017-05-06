@@ -19,7 +19,6 @@
 
 #include "NetCommon.hpp"
 #include "Security.hpp"
-#include "util32.hpp"
 
 typedef enum {SecNone, SecErr, SecLM, SecNT} SecType;
 
@@ -34,17 +33,17 @@ BOOL                                       // ret-TRUE if successful
                              source[UNCLEN+1];
 
    // if local drive, set server to NULL
-   if ( gOptions.target.path[1] == L':' )
+   if ( gTarget.Path()[1] == L':' )
       tgtServer = NULL;
    else
-      tgtServer = ServerNameGet(target, gOptions.target.path);
+      tgtServer = ServerNameGet(target, gTarget.Path());
 
-   if ( !wcscmp(gOptions.source.path, L"-") )
+   if ( !wcscmp(gSource.Path(), L"-") )
       srcServer = tgtServer;
-   else if ( gOptions.source.path[1] == L':' )
+   else if ( gSource.Path()[1] == L':' )
       srcServer = NULL;
    else
-      srcServer = ServerNameGet(source, gOptions.source.path);
+      srcServer = ServerNameGet(source, gSource.Path());
 
    // If the souce and target systems are different, we need to give the target
    // both backup priviledge in addition to restore priviledge so it can do

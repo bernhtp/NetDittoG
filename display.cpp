@@ -16,7 +16,6 @@
 #include <conio.h>
 
 #include "netditto.hpp"
-#include "util32.hpp"
 #include "viosupp.hpp"
 
 //------------------ Full screen attribute defines ----------------------------
@@ -357,8 +356,8 @@ void _stdcall
    )
 {
    VtxtDispStrN(L"Start", A_IBKGT, 8, PATHROW+2, 1);
-   VtxtDispStrN(gOptions.source.path, A_IBKGH, PATHWIDTH-1, PATHROW+2, PATHCOL);
-   VtxtDispStrN(gOptions.target.path, A_IBKGH, PATHWIDTH  , PATHROW+2, PATHCOL+PATHWIDTH);
+   VtxtDispStrN(gSource.Path(), A_IBKGH, PATHWIDTH-1, PATHROW+2, PATHCOL);
+   VtxtDispStrN(gTarget.Path(), A_IBKGH, PATHWIDTH  , PATHROW+2, PATHCOL+PATHWIDTH);
 }
 
 //-----------------------------------------------------------------------------
@@ -423,7 +422,6 @@ void _stdcall
 //-----------------------------------------------------------------------------
 // Displays the elapsed time and number of bytes written per second.
 //-----------------------------------------------------------------------------
-extern BufferOffset          bufferMax;
 void _stdcall
    DisplayTime()
 {
@@ -473,7 +471,5 @@ void _stdcall
       }
    }
 
-   //` sprintf(temp[0], "M=%5u", bufferMax);
-   //` WriteConsoleOutputCharacter(hConsole, temp[0], wcslen(temp[0]), c4, &nWrite);
    tLast = tNow;
 }

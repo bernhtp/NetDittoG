@@ -26,9 +26,9 @@
 
 #include "Err.hpp"
 #include "Common.hpp"
-//#include "UString.hpp"
 #include "TSync.hpp"
 #include "WildMatch.hpp"
+#include "TList.h"
 
 #include "DirList.h"
 
@@ -91,9 +91,6 @@ struct Property                          // Actions for dir/file properties
 #define FLAG_Shutdown        (1 << 0)    // Shutdown program
 #define FLAG_SameVolume      (1 << 1)    // source and target on same volume name
 #define FLAG_OverlappedScan  (1 << 2)    // overlapped directory scanning
-
-#define DIR_IndexSize        (1024*2)    // Initial DirIndex allocation size
-#define DIR_BlockSize        (1024*512)  // Default DirBlock allocation size
 
 
 //-----------------------------------------------------------------------------
@@ -159,21 +156,6 @@ typedef struct
    StatsCommon               target;
 }                         Stats;
 
-struct DirOptions
-{
-	__int64           cbVolTotal;		// total bytes on volume
-	__int64           cbVolFree;		// total bytes free on volume
-	DWORD             cbCluster;		// cluster size of volume
-	DWORD             fsFlags;			// overall process/action/status flags
-	DWORD             volser;			// unique volume serial number
-	UINT              driveType;		// drive type from GetDriveType()
-	WCHAR             fsName[16];		// file system name
-	WCHAR             apipath[4];		// \\?\ prefix needed to support long paths
-	WCHAR             path[MAX_PATHX];	// file path after the \\?\ prefix
-	WCHAR             volName[MAX_PATH];// volume name (drive or UNC)
-	bool              bUNC;				// UNC form name? UNC\server\share 
-	DirList           dirList;			// directory entry lists
-};
 
 struct Options                          // main object of system containing processed parms and data structs
 {
@@ -187,16 +169,12 @@ struct Options                          // main object of system containing proc
 //	char			  spaceDrive;		// space check drive letter
 	DWORD             sizeBuffer;		// copy buffer size
 	short             maxLevel;			// max directory recursion level
-	DirOptions        source;			// source options including current path and directory buffer
-	DirOptions        target;			// target options including current path and directory buffer
 	Property          dir;				// actions for dir/properties
 	Property          file;				// actions for file/properties
 	DWORD             fState;			// status flags
 	DWORD             global;			// global actions
 	Stats             stats;			// statistics
 	DWORD             findAttr;			// DosFind attribute
-	DWORD             sizeDirBuff;		// Directory buffer size
-	DWORD             sizeDirIndex;		// Directory index size
 	DWORD             attrSignif;		// mask of significant attributes to compare
 //	TEvent          * evDirGetStart;	// event to start overlapped DirGet
 //	TEvent          * evDirGetComplete;	// Event that is signalled when overlapped DirGet complete
@@ -207,12 +185,6 @@ struct Options                          // main object of system containing proc
 // Prototypes
 //-----------------------------------------------------------------------------
 
-DWORD _stdcall                             // ret-0=success -1=overflow +=error
-   DirGet(
-      DirOptions           * dir         ,// i/o-directory data and options
-      StatsCommon          * stats       ,// i/o-dir level statistics
-      DirEntry           *** dirArray     // out-array of DirEntry pointers
-   );
 
 short _stdcall
    DisplayInit(
@@ -351,7 +323,7 @@ void _stdcall
       DirEntry const       * tgtEntry     // in -current target entry processed
    );
 
-short _stdcall                            // ret-0=success
+DWORD _stdcall                            // ret-0=success
    ParmParse(
        WCHAR const         ** argv        // in -argument values
    );
@@ -407,12 +379,6 @@ BOOL
 
 BOOL BackupPriviledgeSet();
 
-DWORD
-   VolumeGetInfo(
-      WCHAR const          * path        ,// in -path string
-      DirOptions           * dirOptions   // out-initialized dir options
-   );
-
 BOOL
    UnsecureForDelete(
       DirEntry const       * tgtEntry
@@ -449,6 +415,9 @@ public:
 };
 
 // ------------------------------- Globals ------------------------------------
-extern WCHAR               * gLogName;
-extern Options               gOptions;
-extern TErrorScreen          err;
+extern WCHAR              * gLogName;
+extern Options              gOptions;
+extern TErrorScreen			err;
+
+extern DirList				gSource;
+extern DirList				gTarget;

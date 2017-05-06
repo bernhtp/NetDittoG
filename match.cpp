@@ -76,43 +76,45 @@ short _stdcall                            // ret-0=success
       DirEntry             * tgtDirEntry  // in -target dir entry
    )
 {
-   int                       rc,
-                             comp;        // source/target operation result
+	int						comp;        // source/target operation result
 
-   DirEntry                * srcEntry,    // current source entry
-                           * tgtEntry;    // current target entry
+	DirEntry			  * srcEntry = NULL,// current source entry
+                          * tgtEntry = NULL;// current target entry
+	// capture source and target path lengths so we can restore them at end
+	int						srcPathlen = gSource.PathLength(),
+							tgtPathlen = gTarget.PathLength();
+	DirListEnum			  *	srcEnum = NULL;
+	DirListEnum			  *	tgtEnum = NULL;
 
+	if ( srcDirEntry )
+	{
+		if ( srcDirEntry->attrFile & FILE_ATTRIBUTE_DIRECTORY )
+		{
+			srcEnum = new DirListEnum(&gSource);
+			srcEntry = srcEnum->GetNext();
+		}
+		else
+			MismatchSourceNotDir(srcDirEntry, tgtDirEntry);
+	}
+	if ( tgtDirEntry )
+	{
+		if ( tgtDirEntry->attrFile & FILE_ATTRIBUTE_DIRECTORY )
+		{
+			tgtEnum = new DirListEnum(&gTarget);
+			tgtEntry = tgtEnum->GetNext();
+		}
+		else
+			MismatchTargetNotDir(srcDirEntry, tgtDirEntry);
+	}
+	else      // process no target on way down in case of create)
+		MatchedDirNoTgt(srcDirEntry);
+	if ( srcDirEntry  &&  tgtDirEntry )
+		gOptions.stats.match.dirMatched++;
 
-   if ( srcDirEntry )
-   {
-      if ( srcDirEntry->attrFile & FILE_ATTRIBUTE_DIRECTORY )
-         if ( rc = gOptions.source.dirList.PathProcess(srcEntry->cFileName) )
-            return rc;
-         else;
-      else
-         MismatchSourceNotDir(srcDirEntry, tgtDirEntry);
-   }
-   if ( tgtDirEntry )
-   {
-      if ( tgtDirEntry->attrFile & FILE_ATTRIBUTE_DIRECTORY )
-         if ( rc = gOptions.target.dirList.PathProcess(tgtEntry->cFileName) )
-            return rc;
-         else;
-      else
-         MismatchTargetNotDir(srcDirEntry, tgtDirEntry);
-   }
-   else      // process no target on way down in case of create)
-      MatchedDirNoTgt(srcDirEntry);
-   if ( srcDirEntry  &&  tgtDirEntry )
-      gOptions.stats.match.dirMatched++;
-
-   DisplayPathOffset(gOptions.target.path);
-
-	DirListEnum				srcEnum(&gOptions.source.dirList);
-	DirListEnum				tgtEnum(&gOptions.target.dirList);
+   DisplayPathOffset(gTarget.Path());
 
 	// match source and target entry lists and process differences
-	for ( srcEntry = srcEnum.GetNext(), tgtEntry = tgtEnum.GetNext();  srcEntry || tgtEntry; )
+	while ( srcEntry || tgtEntry )
 	{
 		DirEntry * srcTemp = srcEntry, 
 				 * tgtTemp = tgtEntry;
@@ -128,16 +130,18 @@ short _stdcall                            // ret-0=success
 		if ( tgtTemp )
 		{
 			if ( !srcTemp )
-				gOptions.source.dirList.PathAppend(tgtTemp->cFileName);
-			gOptions.target.dirList.PathAppend(tgtTemp->cFileName);
-			tgtEntry = tgtEnum.GetNext();
+				gSource.PathAppend(tgtTemp->cFileName);
+			gTarget.PathAppend(tgtTemp->cFileName);
+			if ( tgtEnum )
+				tgtEntry = tgtEnum->GetNext();
 		}
 		if ( srcTemp )
 		{
-			gOptions.source.dirList.PathAppend(srcTemp->cFileName);
+			gSource.PathAppend(srcTemp->cFileName);
 			if ( !tgtTemp )
-				gOptions.target.dirList.PathAppend(srcTemp->cFileName);
-			srcEntry = srcEnum.GetNext();
+				gTarget.PathAppend(srcTemp->cFileName);
+			if ( srcEnum )
+				srcEntry = srcEnum->GetNext();
 		}
 
 		// resolve hidden file/directory semantics when /-h specified
@@ -157,14 +161,20 @@ short _stdcall                            // ret-0=success
 		}
 	}
 
-	DisplayPathOffset(gOptions.target.path);
+	DisplayPathOffset(gTarget.Path());
 
+	// restore paths to prior level
+	gSource.PathTrunc(srcPathlen);
+	gTarget.PathTrunc(tgtPathlen);
+	if ( srcEnum )
+		delete srcEnum;
+	if ( tgtEnum )
+		delete tgtEnum;
 	if ( tgtDirEntry )
 		// do target dirs on way up in case of deletion
 		MatchedDirTgtExists(srcDirEntry, tgtDirEntry);
 	else
 		// Takes care of dir attributes that can't be set at dir creation time
 		MatchedDirNoTgtExit(srcDirEntry);
-
 	return 0;
 }

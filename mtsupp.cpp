@@ -20,10 +20,9 @@
 #include <process.h>
 
 #include "netditto.hpp"
-#include "util32.hpp"
 
-static TEvent                 eventStats(FALSE, FALSE); // unsignalled auto-reset event
-static TEvent                 eventSpace(FALSE, FALSE); // unsignalled auto-reset event
+static TEvent                 evStats(FALSE, FALSE); // unsignalled auto-reset event
+static TEvent                 evSpace(FALSE, FALSE); // unsignalled auto-reset event
 #define ThreadFunc void (__cdecl *)(void *)
 
 //-----------------------------------------------------------------------------
@@ -41,7 +40,7 @@ static void _cdecl
 
    while ( !done )
    {
-      switch ( rc = eventStats.WaitSingle(gOptions.statsInterval) )
+      switch ( rc = evStats.WaitSingle(gOptions.statsInterval) )
       {
          case WAIT_OBJECT_0:
          case WAIT_ABANDONED:
@@ -59,7 +58,7 @@ static void _cdecl
       DisplayTime();
    }
 
-   eventStats.Set();
+   evStats.Set();
    _endthread();
 }
 
@@ -92,8 +91,8 @@ short _stdcall
 void _stdcall
    StatsTimerTerminate()
 {
-   eventStats.Set();         // Releases the wait in the stats display thread
-   eventStats.WaitSingle(gOptions.statsInterval);
+   evStats.Set();         // Releases the wait in the stats display thread
+   evStats.WaitSingle(gOptions.statsInterval);
 }
 
 
@@ -114,7 +113,7 @@ static void _cdecl
 
    while ( !done )
    {
-      wcscpy(path, gOptions.target.path);
+      wcscpy(path, gTarget.Path());
       if ( path[1] == L'\\' )             // UNCs must be backslash-terminated
          wcscat(path, L"\\");             // for some Win32 APIs
       if ( !GetDiskFreeSpace(path, &sectorsPerCluster,
@@ -131,7 +130,7 @@ static void _cdecl
             err.MsgWrite(0, L"Target space free=%luk", (DWORD)(spaceFree / 1000));
       }
 
-      switch ( rc = eventSpace.WaitSingle(gOptions.spaceInterval) )
+      switch ( rc = evSpace.WaitSingle(gOptions.spaceInterval) )
       {
          case WAIT_OBJECT_0:
          case WAIT_ABANDONED:
@@ -146,7 +145,7 @@ static void _cdecl
       }
    }
 
-   eventSpace.Set();
+   evSpace.Set();
    _endthread();
 }
 
@@ -181,8 +180,8 @@ void _stdcall
    SpaceCheckTerminate(
    )
 {
-   eventSpace.Set();
-   eventSpace.WaitSingle(gOptions.spaceInterval);
+   evSpace.Set();
+   evSpace.WaitSingle(gOptions.spaceInterval);
 }
 
 /*

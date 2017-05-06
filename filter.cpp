@@ -23,7 +23,6 @@
 */
 
 #include "netditto.hpp"
-#include "util32.hpp"
 
 short _stdcall                            // ret-0=accept 1=notInclude 2=Exclude
    FilterReject(

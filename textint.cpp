@@ -1,7 +1,7 @@
 #include <windows.h>
 #include <ctype.h>
 
-__int64
+__int64									  // ret-_int64 result
    TextToInt64(
       WCHAR const          * str          ,// in -string value to parse
       __int64                minVal       ,// in -min allowed value for result

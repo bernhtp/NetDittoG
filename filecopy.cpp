@@ -13,7 +13,6 @@
 */
 
 #include "netditto.hpp"
-#include "util32.hpp"
 
 #define INT64LOW(x)  ( *((DWORD *)&x)     )
 #define INT64HIGH(x) ( *((LONG  *)&x + 1) )
@@ -69,7 +68,7 @@ static DWORD _stdcall
    }
    if ( !b )
       if ( rc = GetLastError() )
-         err.SysMsgWrite(40104, rc, L"ReadFile(%s)=%ld ", gOptions.source.path, rc);
+         err.SysMsgWrite(40104, rc, L"ReadFile(%s)=%ld ", gSource.Path(), rc);
 
    return rc;
 }
@@ -96,11 +95,11 @@ DWORD _stdcall
          if ( (tgtEntry->attrFile & FILE_ATTRIBUTE_READONLY  &&  gOptions.global & OPT_GlobalReadOnly)
            || (tgtEntry->attrFile & FILE_ATTRIBUTE_HIDDEN    &&  gOptions.global & OPT_GlobalHidden  ) )
          {
-            if ( !SetFileAttributes(gOptions.target.apipath, FILE_ATTRIBUTE_NORMAL) )
+            if ( !SetFileAttributes(gTarget.ApiPath(), FILE_ATTRIBUTE_NORMAL) )
             {
                rc = GetLastError();
                err.SysMsgWrite(20103, rc, L"SetFileAttributes(%s,N)=%ld, ",
-                                          gOptions.target.path, rc);
+                                          gTarget.Path(), rc);
                return rc;
             }
          }
@@ -117,12 +116,12 @@ DWORD _stdcall
    if ( srcEntry->cbFile >= LARGE_FILE_SIZE )
    {
       overlapped = FILE_FLAG_OVERLAPPED;
-      if ( gOptions.target.bUNC )
+      if ( gTarget.IsUNC() )
          overlapped |= FILE_FLAG_NO_BUFFERING;
    }
    else
       overlapped = 0;
-   hSrc = CreateFile(gOptions.source.apipath,
+   hSrc = CreateFile(gSource.ApiPath(),
                      GENERIC_READ,
                      FILE_SHARE_READ | FILE_SHARE_WRITE,
                      NULL, OPEN_EXISTING,
@@ -132,13 +131,13 @@ DWORD _stdcall
    {
       rc = GetLastError();
       if ( rc == ERROR_SHARING_VIOLATION )
-         err.MsgWrite(20101, L"Source file in use %s", gOptions.source.path );
+         err.MsgWrite(20101, L"Source file in use %s", gSource.Path() );
       else
-         err.SysMsgWrite(40101, rc, L"OpenR(%s)=%ld, ", gOptions.source.apipath, rc);
+         err.SysMsgWrite(40101, rc, L"OpenR(%s)=%ld, ", gSource.ApiPath(), rc);
       return rc;
    }
 
-   hTgt = CreateFile(gOptions.target.apipath,
+   hTgt = CreateFile(gTarget.ApiPath(),
                      GENERIC_WRITE | GENERIC_READ, FILE_SHARE_READ,
                      NULL,
                      CREATE_ALWAYS,
@@ -148,11 +147,11 @@ DWORD _stdcall
    {
       rc = GetLastError();
       if ( rc == ERROR_SHARING_VIOLATION )
-         err.MsgWrite(20101, L"Target file in use %s", gOptions.target.path );
+         err.MsgWrite(20101, L"Target file in use %s", gTarget.Path() );
       else
       {
          err.SysMsgWrite(40102, rc, L"OpenW(%s)=%ld (attr S/T=%s/%s,%x/%x), ",
-                                    gOptions.target.path,
+                                    gTarget.Path(),
                                     rc,
                                     srcEntry ? AttrStr(srcEntry->attrFile, temp[0]) : L"-",
                                     tgtEntry ? AttrStr(tgtEntry->attrFile, temp[1]) : L"-",
@@ -186,25 +185,25 @@ DWORD _stdcall
    if ( rc )
       err.SysMsgWrite(104, rc, L"FileCopyContents%s(%s), ",
                                (overlapped ? L"Overlapped" : L""),
-                               gOptions.target.path);
+                               gTarget.Path());
    CloseHandle(hSrc);
 
    if ( !SetFileTime(hTgt, NULL, NULL, &srcEntry->ftimeLastWrite) )
    {
       rc = GetLastError();
       err.SysMsgWrite(40110, rc, L"SetFileTime(%s,%02lX)=%ld ",
-                             gOptions.target.path, srcEntry->attrFile, rc);
+                             gTarget.Path(), srcEntry->attrFile, rc);
       rc = 0;
    }
 
    CloseHandle(hTgt);
 
    if ( gOptions.file.attr & OPT_PropActionUpdate )
-      if ( !SetFileAttributes(gOptions.target.apipath, srcEntry->attrFile) )
+      if ( !SetFileAttributes(gTarget.ApiPath(), srcEntry->attrFile) )
       {
          rc = GetLastError();
          err.SysMsgWrite(20109, rc, L"SetFileAttributes(%s)=%d ",
-                                     gOptions.target.path, rc);
+                                     gTarget.Path(), rc);
          return rc;
       }
 
@@ -230,8 +229,8 @@ DWORD _stdcall
    BOOL                      bSrc, bTgt;
 
 
-   err.MsgWrite(0, L"Fc %s", gOptions.target.path);
-   hSrc = CreateFile(gOptions.source.apipath,
+   err.MsgWrite(0, L"Fc %s", gTarget.Path());
+   hSrc = CreateFile(gSource.ApiPath(),
                      GENERIC_READ,
                      FILE_SHARE_READ | FILE_SHARE_WRITE,
                      NULL,
@@ -242,13 +241,13 @@ DWORD _stdcall
    {
       rcSrc = GetLastError();
       if ( rcSrc == ERROR_SHARING_VIOLATION )
-         err.MsgWrite(20101, L"Source file in use %s", gOptions.source.path);
+         err.MsgWrite(20101, L"Source file in use %s", gSource.Path());
       else
-         err.SysMsgWrite(40101, rcSrc, L"OpenRs(%s)=%d ", gOptions.source.path, rcSrc);
+         err.SysMsgWrite(40101, rcSrc, L"OpenRs(%s)=%d ", gSource.Path(), rcSrc);
       return rcSrc;
    }
 
-   hTgt = CreateFile(gOptions.target.apipath,
+   hTgt = CreateFile(gTarget.ApiPath(),
                      GENERIC_READ,
                      FILE_SHARE_READ | FILE_SHARE_WRITE,
                      NULL,
@@ -259,9 +258,9 @@ DWORD _stdcall
    {
       rcTgt = GetLastError();
       if ( rcTgt == ERROR_SHARING_VIOLATION )
-         err.MsgWrite(20101, L"Target file in use %s", gOptions.target.path);
+         err.MsgWrite(20101, L"Target file in use %s", gTarget.Path());
       else
-         err.SysMsgWrite(40101, rcTgt, L"OpenRt(%s)=%d, ", gOptions.target.path, rcTgt);
+         err.SysMsgWrite(40101, rcTgt, L"OpenRt(%s)=%d, ", gTarget.Path(), rcTgt);
       return rcTgt;
    }
 
@@ -306,7 +305,7 @@ DWORD _stdcall
 
    if ( rcSrc = max(rcSrc, rcTgt) )
       err.SysMsgWrite(40104, rcSrc, L"ReadFile(%s)=%d",
-          (rcTgt ? gOptions.target.path : gOptions.source.path), rcSrc );
+          (rcTgt ? gTarget.Path() : gSource.Path()), rcSrc );
 
    return max(cmp, rcSrc);
 }
@@ -378,7 +377,7 @@ static DWORD _stdcall
    }
    if ( !b )
       if ( rc = GetLastError() )
-         err.SysMsgWrite(40104, rc, L"BackupRead(%s)=%ld ", gOptions.source.path, rc);
+         err.SysMsgWrite(40104, rc, L"BackupRead(%s)=%ld ", gSource.Path(), rc);
 
    return rc;
 }
@@ -400,11 +399,11 @@ DWORD _stdcall
    // if file R/O and write R/O option, change to R/W
    if ( tgtEntry  &&  tgtEntry->attrFile & FILE_ATTRIBUTE_READONLY )
       if ( gOptions.global & OPT_GlobalReadOnly )
-         if ( !SetFileAttributes(gOptions.target.apipath, FILE_ATTRIBUTE_NORMAL) )
+         if ( !SetFileAttributes(gTarget.ApiPath(), FILE_ATTRIBUTE_NORMAL) )
          {
             rc = GetLastError();
             err.SysMsgWrite(20103, rc, L"SetFileAttributes(%s)=%ld, ",
-                                        gOptions.target.path, rc);
+                                        gTarget.Path(), rc);
             return rc;
          }
    attr = (srcEntry->attrFile & FILE_ATTRIBUTE_DIRECTORY
@@ -412,7 +411,7 @@ DWORD _stdcall
         | FILE_FLAG_SEQUENTIAL_SCAN
         | FILE_FLAG_BACKUP_SEMANTICS;
 
-   hSrc = CreateFile(gOptions.source.apipath,
+   hSrc = CreateFile(gSource.ApiPath(),
                      GENERIC_READ,
                      FILE_SHARE_READ | FILE_SHARE_WRITE,
                      NULL,
@@ -423,13 +422,13 @@ DWORD _stdcall
    {
       rc = GetLastError();
       if ( rc == ERROR_SHARING_VIOLATION )
-         err.MsgWrite(20161, L"Source file in use - bypassed - %s", gOptions.source.path);
+         err.MsgWrite(20161, L"Source file in use - bypassed - %s", gSource.Path());
       else
-         err.SysMsgWrite(40161, rc, L"OpenR(%s)=%ld, ", gOptions.source.apipath, rc);
+         err.SysMsgWrite(40161, rc, L"OpenR(%s)=%ld, ", gSource.ApiPath(), rc);
       return rc;
    }
 
-   hTgt = CreateFile(gOptions.target.apipath,
+   hTgt = CreateFile(gTarget.ApiPath(),
                      GENERIC_WRITE | GENERIC_READ | WRITE_OWNER | WRITE_DAC,
                      FILE_SHARE_READ,
                      NULL,
@@ -442,12 +441,12 @@ DWORD _stdcall
       switch ( rc )
       {
          case ERROR_SHARING_VIOLATION:
-            err.MsgWrite(20161, L"Target file in use - bypassed - %s", gOptions.target.path);
+            err.MsgWrite(20161, L"Target file in use - bypassed - %s", gTarget.Path());
             break;
          case ERROR_ACCESS_DENIED:
          default:
             err.SysMsgWrite(30162, rc, L"OpenWb(%s,%lx)=%ld (attr=%s->%s,%x/%x), ",
-                                 gOptions.target.path,
+                                 gTarget.Path(),
                                  attr,
                                  rc,
                                  srcEntry ? AttrStr(srcEntry->attrFile, temp[0]) : L"-",
@@ -470,12 +469,12 @@ DWORD _stdcall
    }
 
    if ( rc = FileBackupContents(hSrc, hTgt) )
-      err.SysMsgWrite(104, rc, L"FileCopyContents(%s), ", gOptions.target.path);
+      err.SysMsgWrite(104, rc, L"FileCopyContents(%s), ", gTarget.Path());
 
    if ( !SetFileTime(hTgt, NULL, NULL, &srcEntry->ftimeLastWrite) )
    {
       rc = GetLastError();
-      err.SysMsgWrite(40110, rc, L"SetFileTime(%s,%02lX)=%ld ", gOptions.target.path,
+      err.SysMsgWrite(40110, rc, L"SetFileTime(%s,%02lX)=%ld ", gTarget.Path(),
                           srcEntry->attrFile, rc);
       rc = 0;
    }
@@ -495,10 +494,10 @@ DWORD _stdcall
               & srcEntry->attrFile;
       if ( attr )
       {
-         if ( !SetFileAttributes(gOptions.target.apipath, srcEntry->attrFile) )
+         if ( !SetFileAttributes(gTarget.ApiPath(), srcEntry->attrFile) )
          {
             rc = GetLastError();
-            err.SysMsgWrite(20109, rc, L"SetFileAttributes(%s)=%d ", gOptions.target.path, rc);
+            err.SysMsgWrite(20109, rc, L"SetFileAttributes(%s)=%d ", gTarget.Path(), rc);
             return rc;
          }
       }
