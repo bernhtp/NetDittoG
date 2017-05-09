@@ -81,6 +81,9 @@
     <ClCompile Include="wildmatch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="DirList.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.hpp">
@@ -111,6 +114,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="TList.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DirList.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

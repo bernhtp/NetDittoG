@@ -1,41 +1,48 @@
+/*
+===============================================================================
+
+Module     - DIrList.cpp
+Class      - NetDitto Utility
+Author     - Tom Bernhardt
+Created    - 05/01/17
+Description- Methods and functions related to class DirEntry, DirList, DirBlock
+	DirBlockCollection, and DirListEnum.  See DirList.h for definitions.
+===============================================================================
+*/
 #include "NetDitto.hpp"
 
 
 /// copies the \\server\share portion of a UNC path to tgtPath and returns the length
-static int                               // ret-length copied or -1 if error
+static int									 // ret-length copied or -1 if error
 ServerShareCopy(
-	WCHAR                * tgtPath		,// out-target \\server\share path
-	WCHAR const          * uncPath       // in -UNC path after \\?\ prefix
-)
+	wchar_t				  * p_tgtPath		,// out-target \\server\share path
+	wchar_t const		  * p_uncpath		 // in -UNC path after \\?\ prefix
+	)
 {
-	WCHAR const             * c;
-	int                       nSlash = 0;
-	WCHAR                   * t = tgtPath;
+	wchar_t const		  * c;
+	int						nSlash = 0;
+	wchar_t				  * t = p_tgtPath;
 
 	// iterate through the string stopping at the fourth backslash or '\0'
-	for ( c = uncPath;  *c;  c++ )
+	for ( c = p_uncpath;  *c;  c++ )
 	{
 		if ( *c == L'\\' )
 		{
-			nSlash++;
-			if ( nSlash > 3 )
+			if ( ++nSlash > 3 )				// stop at three '\' chars - \\server\share
 				break;
 		}
 		*t++ = *c;
 	}
-
-	*t = L'\0';
-
+	*t = L'\0';								// terminate at \\server\share
 	// If UNC but not at least sharename separater blackslash, error
 	if ( nSlash < 3 )
 		return -1;
-
-	return (int)(c - uncPath);
+	return (int)(c - p_uncpath);
 }
 
 
 /// Creates root DirEntry dir
-DirEntry * DirEntryCreate(WIN32_FIND_DATAW const * p_find)
+DirEntry * __stdcall DirEntryCreate(WIN32_FIND_DATAW const * p_find)
 {
 	DirEntry                * direntry;
 	size_t                    len;
@@ -51,18 +58,27 @@ DirEntry * DirEntryCreate(WIN32_FIND_DATAW const * p_find)
 	return direntry;
 }
 
+class Path
+{
+	wchar_t	const	m_apiprefix[4] = { L'\\', L'\\', L'?', L'\\' };
+	wchar_t			m_path[32767];
+
+	Path(wchar_t const p_path)  {}
+	wchar_t * GetPath() { return m_path; }
+	wchar_t const * GetApipath() const { return m_apiprefix; }
+};
 
 /// Initializes IndexHeader
-IndexLevel * IndexLevel::Initialize()
+void IndexLevel::Initialize()
 {
 	marker1 = -1;
-	marker2 = 0xeeeeeeeeeeeeeeee;
+	marker2 = 0xeeeeeeee;
 	m_nEntries = 0;
 }
 
 
 DirList::DirList()
-	: m_apipath({ L'\\',L'\\',L'?',L'\\' }), m_path(L""), m_pathlen(0), m_currindex(-1)
+	: m_path(L""), m_pathlen(0), m_currindex(-1)
 {
 	m_indexsize = INDEX_INCREMENT;
 	m_index = (byte *)malloc(m_indexsize);
@@ -165,7 +181,6 @@ DWORD DirList::SetNormalizedRootPath(wchar_t const * p_path)
 		REMOTE_NAME_INFO    i;
 		WCHAR               x[_MAX_PATH + 1];
 	}                       info;
-	wchar_t					path[_MAX_PATH];
 	DWORD                   rc,
 							sizeBuffer = sizeof info,
 							maxCompLen,
@@ -328,7 +343,8 @@ PathExistsResult DirList::PathDirExists(DirEntry ** p_direntry)	// ret-0=not exi
 	case 0:
 		if ( findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY )
 		{
-			*p_direntry = DirEntryCreate(&findData);
+			Push();
+			*p_direntry = DirEntryAdd(&findData);
 			ret = PathExistsResult::YesDir;
 		}
 		else
@@ -413,10 +429,11 @@ DirEntry * DirBlockCollection::DirEntryAdd(WIN32_FIND_DATA const * p_find)
 	}
 	DirEntry * de = m_currblock->GetDirEntry(m_nextavail);
 	de->attrFile = p_find->dwFileAttributes;
-	de->cbFile = (__int64)p_find->nFileSizeHigh << 32 + p_find->nFileSizeLow;
+	de->cbFile = INT64R(p_find->nFileSizeLow, p_find->nFileSizeHigh);
 	de->ftimeLastWrite = p_find->ftLastWriteTime;
 	memcpy(de->cFileName, p_find->cFileName, cbFilename);
 	m_nextavail += m_nextavail;
+	return de;
 }
 
 

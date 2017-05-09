@@ -156,6 +156,7 @@ typedef struct
    StatsCommon               target;
 }                         Stats;
 
+static const int COPYBUFFSIZE = 1 << 18;// 256K
 
 struct Options                          // main object of system containing processed parms and data structs
 {

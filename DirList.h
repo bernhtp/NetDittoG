@@ -131,7 +131,7 @@ public:
 	int						marker2;			// 0xeeeeeeeeeeeeeeee marker at end of header
 	DirEntry *				m_direntry[0];		// zero of more (m_nEntries) DirEntry * pointers for level index
 	
-	IndexLevel *	Initialize();				// lays in and initialzies the IndexHeader within the DirEntryIndex
+	void			Initialize();				// lays in and initialzies the IndexHeader within the DirEntryIndex
 	size_t			ByteSize() const { return sizeof *this + m_nEntries * sizeof m_direntry[0]; }
 };
 
@@ -150,15 +150,15 @@ class DirList
 	DirEntryBlock		  * m_currblock;		// current DirEntryBlock to add DirEntry objects to
 	size_t					m_blocknext;		// next offset within current block to add DirEntry
 	struct {									// anonymous struct to ensure m_apipath prefix and m_path are contiguous
-		wchar_t const		m_apipath[4];		// \\?\ prefix for m_path used by long-form unicode file APIs
+		wchar_t const		m_apipath[4] = { L'\\', L'\\', L'?', L'\\' };	// \\?\ prefix for m_path used by long-form unicode file APIs
 		wchar_t				m_path[MAX_PATHX];	// current path being processed
 	};
 	size_t					m_pathlen;			// char length of the current m_path value (not including m_apipath prefix)
 	bool					m_isUNC;			// is m_path in UNC (\\server\share) form?
 	VolInfo					m_volinfo;			// volume information for the m_path base
 
-	void			DirEntryAdd(WIN32_FIND_DATA const * p_find)	// Creates a DirEntry at the current level
-						{ IndexEntryAdd(m_dirblocks.DirEntryAdd(p_find)); }
+	DirEntry *		DirEntryAdd(WIN32_FIND_DATA const * p_find)	// Creates a DirEntry at the current level
+						{ DirEntry * ret = m_dirblocks.DirEntryAdd(p_find); IndexEntryAdd(ret); return ret; }
 	void			IndexEntryAdd(DirEntry * p_direntry);	// adds a DirEntry* index entry
 	size_t			IndexUsed() const { return m_currindex + ((IndexLevel *)m_currindex)->ByteSize(); } // get index byte size
 	void			IndexGrow();							// grow index when more room is needed
@@ -167,10 +167,10 @@ public:
 	DirList();
 	~DirList() { free(m_index); }
 
-	void			Push();									// Pushes new IndexHeader at end of m_index
+	void			Push();									// Pushes new IndexLevel at end of m_index
 //	void			Push(wchar_t const * p_dir)				// Push with new directory name
 //						{ PathAppend(p_dir); Push(); ProcessCurrentPath(); }
-	void			Pop();									// Pop index, DirBlock and path off to previous position
+	void			Pop();									// Pop IndexLevel, DirBlock and path off to previous position
 
 	wchar_t const * ApiPath() const { return m_apipath; }	// returns the api path string for \\?\-prefixed operations
 	IndexLevel *	GetCurrIndexLevel()						// returns the current IndexLevel

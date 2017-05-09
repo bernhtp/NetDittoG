@@ -142,6 +142,7 @@
   <ItemGroup>
     <ClCompile Include="commastr.cpp" />
     <ClCompile Include="common.cpp" />
+    <ClCompile Include="DirList.cpp" />
     <ClCompile Include="display.cpp" />
     <ClCompile Include="err.cpp" />
     <ClCompile Include="filecopy.cpp" />
@@ -165,6 +166,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.hpp" />
+    <ClInclude Include="DirList.h" />
     <ClInclude Include="err.hpp" />
     <ClInclude Include="netcommon.hpp" />
     <ClInclude Include="netditto.hpp" />

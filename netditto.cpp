@@ -92,3 +92,21 @@ int
    DisplayInit(0);
    return 0;
 }
+
+
+void _stdcall OptionsConstruct()
+{
+	memset(&gOptions, 0, sizeof gOptions);
+	gOptions.findAttr = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_READONLY
+		| FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_DIRECTORY
+		| FILE_ATTRIBUTE_ARCHIVE;
+
+	gOptions.copyBuffer = (PBYTE)VirtualAlloc(NULL,
+		gOptions.sizeBuffer = COPYBUFFSIZE,
+		MEM_COMMIT,
+		PAGE_READWRITE);
+	if (!gOptions.copyBuffer)
+		err.SysMsgWrite(50998, GetLastError(), L"CopyBuffer VirtualAlloc(%u)=%ld ",
+			gOptions.sizeBuffer, GetLastError());
+}
+

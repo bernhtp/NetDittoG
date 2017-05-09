@@ -8,13 +8,10 @@ Description -  Common classes of general utility.
 Updates     -
 ===============================================================================
 */
-
-// WcsByteLen returns the byte length of a wchar string including it null terminator
-#define WcsByteLen(s) ( sizeof *(s) * (wcslen(s) + 1) )
-
-#ifndef _INC_TIME
 #include <time.h>
-#endif
+
+// WcsByteLen returns the byte length of a wchar string including its null terminator
+#define WcsByteLen(s) ( sizeof *(s) * (wcslen(s) + 1) )
 
 #define SECS(n) (n * 1000)
 #define DIM(x) (sizeof (x) / sizeof ((x)[0]))	// gives the number of elements in an array
