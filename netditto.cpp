@@ -44,24 +44,22 @@ int
    if ( gOptions.global & OPT_GlobalBackup )
       BackupPriviledgeSet();
 
+   PathExistsResult ret;
    if ( !wcscmp(gSource.Path(), L"-") )
       srcEntry = NULL;
    else
    {
-	   rc = gSource.PathDirExists();
-//      rc = PathDirExists(gSource.ApiPath(), &srcEntry);
-      if ( rc != 1 )
+	   ret = gSource.PathDirExists(&srcEntry);
+	   if ( ret != PathExistsResult::YesDir )
          err.MsgWrite(50001, L"Source directory base, %s, does not exist (%lu)",
-                             gSource.Path(), rc);
+                             gSource.Path(), ret);
    }
-
-   rc = gTarget.PathDirExists();
-//   rc = PathDirExists(gTarget.ApiPath(), &tgtEntry);
-   if ( rc != 1 )
+   ret = gTarget.PathDirExists(&tgtEntry);
+   if ( rc != PathExistsResult::YesDir )
       if ( !(gOptions.global & OPT_GlobalMakeTgt) || srcEntry == NULL )
          err.MsgWrite(50004, L"Target directory(%s) missing (%ld): "
                              L"/m not specified or '-' specified as source",
-                             gTarget.Path(), rc);
+                             gTarget.Path(), ret);
 
    if ( !_wcsicmp(gSource.Path(), gTarget.Path()) )
       err.MsgWrite(50005, L"Source path (%s) same as target",

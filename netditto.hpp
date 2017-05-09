@@ -282,7 +282,7 @@ short _stdcall                            // ret-0=accept 1=notInclude 2=Exclude
 void _stdcall
    LogOpen(void);
 
-short _stdcall                            // ret-0=success
+DWORD _stdcall                            // ret-0=success
    MatchEntries(
       short                  level       ,// in -current recursion/directory level
       DirEntry             * srcDirEntry ,// in -source dir entry

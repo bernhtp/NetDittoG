@@ -69,7 +69,7 @@ void _stdcall                              // ret-0=success
 // matches the source and target ordered lists of DirEntry objects within a directory.
 // takes action depending upon whether both names match
 // Processes subdirectories recursively.
-short _stdcall                            // ret-0=success
+DWORD _stdcall                            // ret-0=success
    MatchEntries(
       short                  level       ,// in -current recursion/directory level
       DirEntry             * srcDirEntry ,// in -source dir entry
@@ -83,15 +83,16 @@ short _stdcall                            // ret-0=success
 	// capture source and target path lengths so we can restore them at end
 	int						srcPathlen = gSource.PathLength(),
 							tgtPathlen = gTarget.PathLength();
-	DirListEnum			  *	srcEnum = NULL;
-	DirListEnum			  *	tgtEnum = NULL;
+	DirListEnum				srcEnum(&gSource);
+	DirListEnum				tgtEnum(&gTarget);
+	DWORD					rc = 0;
 
 	if ( srcDirEntry )
 	{
 		if ( srcDirEntry->attrFile & FILE_ATTRIBUTE_DIRECTORY )
 		{
-			srcEnum = new DirListEnum(&gSource);
-			srcEntry = srcEnum->GetNext();
+			if ( rc = gSource.ProcessCurrentPath() )
+				return rc;	// kick out with bad error if can't enum a directory we know we have
 		}
 		else
 			MismatchSourceNotDir(srcDirEntry, tgtDirEntry);
@@ -100,8 +101,8 @@ short _stdcall                            // ret-0=success
 	{
 		if ( tgtDirEntry->attrFile & FILE_ATTRIBUTE_DIRECTORY )
 		{
-			tgtEnum = new DirListEnum(&gTarget);
-			tgtEntry = tgtEnum->GetNext();
+			if ( rc = gTarget.ProcessCurrentPath() )
+				return rc;
 		}
 		else
 			MismatchTargetNotDir(srcDirEntry, tgtDirEntry);
@@ -114,62 +115,56 @@ short _stdcall                            // ret-0=success
    DisplayPathOffset(gTarget.Path());
 
 	// match source and target entry lists and process differences
-	while ( srcEntry || tgtEntry )
+   while (!srcEnum.EOL() || !tgtEnum.EOL())
 	{
-		DirEntry * srcTemp = srcEntry, 
-				 * tgtTemp = tgtEntry;
-		if ( tgtEntry && srcTemp)		// compare them if both exist
+	   srcEntry = srcEnum.Peek(); 
+	   tgtEntry = tgtEnum.Peek();
+	   if ( tgtEntry && srcEntry)		// compare them if both exist
 		{
-			comp = _wcsicmp(srcTemp->cFileName, tgtTemp->cFileName);
+			comp = _wcsicmp(srcEntry->cFileName, tgtEntry->cFileName);
 			if ( comp < 0)
-				tgtTemp = NULL;
+				tgtEntry = NULL;
 			else if ( comp > 0 )
-				srcTemp = NULL;
+				srcEntry = NULL;
 		}
 
-		if ( tgtTemp )
+		if ( tgtEntry )
 		{
-			if ( !srcTemp )
-				gSource.PathAppend(tgtTemp->cFileName);
-			gTarget.PathAppend(tgtTemp->cFileName);
-			if ( tgtEnum )
-				tgtEntry = tgtEnum->GetNext();
+			if ( !srcEntry )
+				gSource.PathAppend(tgtEntry->cFileName);
+			gTarget.PathAppend(tgtEntry->cFileName);
+			tgtEnum.GetNext();
 		}
-		if ( srcTemp )
+		if ( srcEntry )
 		{
-			gSource.PathAppend(srcTemp->cFileName);
-			if ( !tgtTemp )
-				gTarget.PathAppend(srcTemp->cFileName);
-			if ( srcEnum )
-				srcEntry = srcEnum->GetNext();
+			gSource.PathAppend(srcEntry->cFileName);
+			if ( !tgtEntry )
+				gTarget.PathAppend(srcEntry->cFileName);
+			srcEnum.GetNext();
 		}
 
 		// resolve hidden file/directory semantics when /-h specified
 		if ( !(gOptions.global & OPT_GlobalHidden) )
-			HiddenSemanticsSet(&srcTemp, &tgtTemp);
+			HiddenSemanticsSet(&srcEntry, &tgtEntry);
 
 		// recursive call for subdirectories
-		if ( (srcTemp  &&  srcTemp->attrFile & FILE_ATTRIBUTE_DIRECTORY )
+		if ( (srcEntry  &&  srcEntry->attrFile & FILE_ATTRIBUTE_DIRECTORY )
   		  || (tgtEntry  &&  tgtEntry->attrFile & FILE_ATTRIBUTE_DIRECTORY) )
 		{
 			if ( (level+1) <= gOptions.maxLevel )
-				MatchEntries(level + 1, srcTemp, tgtTemp);
+				MatchEntries(level + 1, srcEntry, tgtEntry);
 		}
-		else if (srcTemp || tgtTemp)
+		else if ( srcEntry || tgtEntry )
 		{
-			MatchedFileProcess(srcEntry, tgtTemp);
+			MatchedFileProcess(srcEntry, tgtEntry);
 		}
 	}
 
 	DisplayPathOffset(gTarget.Path());
 
 	// restore paths to prior level
-	gSource.PathTrunc(srcPathlen);
-	gTarget.PathTrunc(tgtPathlen);
-	if ( srcEnum )
-		delete srcEnum;
-	if ( tgtEnum )
-		delete tgtEnum;
+	gSource.PathTrunc();
+	gTarget.PathTrunc();
 	if ( tgtDirEntry )
 		// do target dirs on way up in case of deletion
 		MatchedDirTgtExists(srcDirEntry, tgtDirEntry);

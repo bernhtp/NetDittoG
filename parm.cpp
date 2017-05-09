@@ -527,19 +527,19 @@ DWORD _stdcall                            // ret-0=success
          if ( !*gSource.Path() )
          {
             if ( wcscmp(currArg, L"-") )
-               rc = gSource.NormalizeAndSetPath(currArg, false);
+               rc = gSource.SetNormalizedRootPath(currArg);
             else
-               gSource.SetPath(L"-");
+               gSource.SetRootPath(L"-");
          }
          else if ( !gTarget.Path()[0] )
          {
-			 rc = gSource.NormalizeAndSetPath(currArg, gOptions.global & OPT_GlobalMakeTgt);
+			 rc = gSource.SetNormalizedRootPath(currArg);
             // if source is null, we copy the target options to it because some
             // behavior is dependant on this being filled in.
             if ( !wcscmp(gSource.Path(), L"-") )
             {
-//             gSource = gTarget;
-               gSource.SetPath(L"-");
+//?            gSource = gTarget;
+               gSource.SetRootPath(L"-");
             }
          }
          else
@@ -663,7 +663,7 @@ DWORD _stdcall                            // ret-0=success
 		}
 		else if ( !gTarget.Path()[0] )
 		{
-			rc = gTarget.NormalizeAndSetPath(L".", false);
+			rc = gTarget.SetNormalizedRootPath(L".");
 			rcMax = max(rc, rcMax);
 		}
 	}
