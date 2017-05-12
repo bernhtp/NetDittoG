@@ -30,6 +30,7 @@
 #include "WildMatch.hpp"
 #include "TList.h"
 
+#include "stats.h"
 #include "DirList.h"
 
 //-----------------------------------------------------------------------------
@@ -93,68 +94,6 @@ struct Property                          // Actions for dir/file properties
 #define FLAG_OverlappedScan  (1 << 2)    // overlapped directory scanning
 
 
-//-----------------------------------------------------------------------------
-// Statistics structures and types
-//-----------------------------------------------------------------------------
-
-typedef long unsigned        StatCount;
-typedef __int64              StatBytes;
-struct StatBoth
-{
-   StatCount                 count;
-   StatBytes                 bytes;
-};
-
-typedef struct
-{
-   StatCount                 dirFound;   // n dirs scanned
-   StatCount                 dirFiltered;// n dirs made past filter
-   StatBoth                  fileFound;  // n/bytes files scanned
-   StatBoth                  fileFiltered;// n/bytes files made past filter
-}                         StatsDirGet;
-
-typedef struct
-{
-   StatCount                 dirMatched; // n same-named directories
-   StatBoth                  dirPermMatched; // n same-named directories
-   StatBoth                  fileMatched;// n/bytes same named files
-   StatBoth                  filePermMatched;// n/bytes same named files
-}                         StatsMatch;
-
-typedef struct               // statistics common to both source and target directories
-{
-   StatCount                 dirFound;       // n dirs scanned
-   StatCount                 dirFiltered;    // n dirs made past filter
-   StatBoth                  fileFound;      // n/bytes files scanned
-   StatBoth                  fileFiltered;   // n/bytes files made past filter
-   StatBoth                  dirPermFiltered;// n/bytes dir perms made past filter
-   StatBoth                  filePermFiltered;// n/bytes file perms made past filter
-}                         StatsCommon;
-
-typedef struct               // change/difference statistics for target
-{
-   StatCount                 dirCreated;
-   StatCount                 dirRemoved;
-   StatBoth                  dirPermCreated;
-   StatBoth                  dirPermUpdated;
-   StatBoth                  dirPermRemoved;
-   StatCount                 dirAttrUpdated;
-   StatBoth                  fileCreated;
-   StatBoth                  fileUpdated;
-   StatBoth                  fileRemoved;
-   StatBoth                  filePermCreated;
-   StatBoth                  filePermUpdated;
-   StatBoth                  filePermRemoved;
-   StatCount                 fileAttrUpdated;
-}                         StatsChange;
-
-typedef struct
-{
-   StatsChange               change;
-   StatsMatch                match;
-   StatsCommon               source;
-   StatsCommon               target;
-}                         Stats;
 
 static const int COPYBUFFSIZE = 1 << 18;// 256K
 
@@ -167,7 +106,6 @@ struct Options                          // main object of system containing proc
 	BYTE            * copyBuffer;		// copy buffer - file/dir contents/ACLs
 	long              statsInterval;	// stats display interval (mSec) for MT version
 	long              spaceInterval;	// space free check interval (mSec) for MT version
-//	char			  spaceDrive;		// space check drive letter
 	DWORD             sizeBuffer;		// copy buffer size
 	short             maxLevel;			// max directory recursion level
 	Property          dir;				// actions for dir/properties
@@ -177,14 +115,8 @@ struct Options                          // main object of system containing proc
 	Stats             stats;			// statistics
 	DWORD             findAttr;			// DosFind attribute
 	DWORD             attrSignif;		// mask of significant attributes to compare
-//	TEvent          * evDirGetStart;	// event to start overlapped DirGet
-//	TEvent          * evDirGetComplete;	// Event that is signalled when overlapped DirGet complete
 	WIN32_STREAM_ID * unsecure;			// backup stream to unsecure object for deletion
 };
-
-//-----------------------------------------------------------------------------
-// Prototypes
-//-----------------------------------------------------------------------------
 
 
 short _stdcall

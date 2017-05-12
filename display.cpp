@@ -249,7 +249,7 @@ static void _stdcall
       short                  colNum       // in -logical col number
    )
 {
-   wchar_t                   temp[3][CWIDTH+4];
+   wchar_t                   temp[3][CWIDTH+6];
    DWORD                     nWrite;
    COORD                     c1 = {           SCOL + colNum * (AWIDTH+1), row},
                              c2 = {CWIDTH+1 + SCOL + colNum * (AWIDTH+1), row};

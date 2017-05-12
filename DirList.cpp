@@ -78,8 +78,8 @@ void IndexLevel::Initialize()
 }
 
 
-DirList::DirList()
-	: m_path(L""), m_pathlen(0), m_currindex(INDEXLEVEL_NULL_OFFSET)
+DirList::DirList(StatsCommon * p_stats)
+	: m_path(L""), m_pathlen(0), m_currindex(INDEXLEVEL_NULL_OFFSET), m_stats(p_stats)
 {
 	m_indexsize = INDEX_INCREMENT;
 	m_index = (byte *)malloc(m_indexsize);
@@ -380,7 +380,7 @@ DWORD DirList::ProcessCurrentPath()
 {
 //? Add stats parm and code
 	HANDLE					hDir;
-	WIN32_FIND_DATA			findEntry;			// result of Find*File API
+	WIN32_FIND_DATA			find;			// result of Find*File API
 	DWORD					rc = 0;
 	BOOL					bSuccess;
 	int						pathlen = m_pathlen;
@@ -390,16 +390,31 @@ DWORD DirList::ProcessCurrentPath()
 
 	wcscpy(m_path + pathlen, L"\\*");			// suffix path with \* for FindFileFist
 	// iterate through directory entries and add them as DirEntry objects
-	for ( bSuccess = ((hDir = FindFirstFile(m_apipath, &findEntry)) != INVALID_HANDLE_VALUE),
+	for ( bSuccess = ((hDir = FindFirstFile(m_apipath, &find)) != INVALID_HANDLE_VALUE),
 				m_path[pathlen] = L'\0';		// restore path -- remove \* suffix
 		  bSuccess;
-		  bSuccess = FindNextFile(hDir, &findEntry) )
+		  bSuccess = FindNextFile(hDir, &find) )
 	{
-		if ( !wcscmp(findEntry.cFileName, L".") || !wcscmp(findEntry.cFileName, L"..") )
+		if ( find.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY 
+		  && (!wcscmp(find.cFileName, L".") || !wcscmp(find.cFileName, L"..")) )
 			continue;							// ignore directory names '.' and '..'
-		if ( FilterReject(findEntry.cFileName, gOptions.include, gOptions.exclude) )
+		if ( find.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY )
+			m_stats->dirFound++;
+		else
+		{
+			m_stats->fileFound.count++;
+			m_stats->fileFound.bytes += INT64R(find.nFileSizeLow, find.nFileSizeHigh);
+		}
+		if ( FilterReject(find.cFileName, gOptions.include, gOptions.exclude) )
 			continue;
-		currentry = DirEntryAdd(&findEntry);
+		if ( find.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY )
+			m_stats->dirFiltered++;
+		else
+		{
+			m_stats->fileFiltered.count++;
+			m_stats->fileFiltered.bytes += INT64R(find.nFileSizeLow, find.nFileSizeHigh);
+		}
+		currentry = DirEntryAdd(&find);
 		if ( bSorted && preventry )				// bSorted indicates whether the file system returned items in canonical order
 			bSorted = _wcsicmp(currentry->cFileName, preventry->cFileName) > 0;
 		preventry = currentry;

@@ -22,8 +22,8 @@
 
 // globals
 Options                     gOptions;   // global options
-DirList						gSource;	// global source state
-DirList						gTarget;	// global target state
+DirList						gSource(&gOptions.stats.source);	// global source state
+DirList						gTarget(&gOptions.stats.target);	// global target state
 
 int
    wmain(

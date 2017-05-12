@@ -162,6 +162,7 @@ class DirList
 	size_t					m_pathlen;			// char length of the current m_path value (not including m_apipath prefix)
 	bool					m_isUNC;			// is m_path in UNC (\\server\share) form?
 	VolInfo					m_volinfo;			// volume information for the m_path base
+	StatsCommon			  * m_stats;			// scan stats common to source and target
 
 	DirEntry *		DirEntryAdd(WIN32_FIND_DATA const * p_find);// Creates a DirEntry at the current level
 	void			IndexEntryAdd(DirEntry * p_direntry);	// adds a DirEntry* index entry
@@ -169,7 +170,7 @@ class DirList
 	void			IndexGrow();							// grow index when more room is needed
 	void			IndexSort();							// sort DirEntry* slots in current level by cFileName
 public:
-	DirList();
+	DirList(StatsCommon * p_stats);
 	~DirList() { free(m_index); }
 
 	void			Push();									// Pushes new IndexLevel at end of m_index
