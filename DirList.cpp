@@ -58,6 +58,7 @@ DirEntry * __stdcall DirEntryCreate(WIN32_FIND_DATAW const * p_find)
 	return direntry;
 }
 
+///? Test apparent compiler bug in not accepting array literal initializer
 class Path
 {
 	wchar_t	const	m_apiprefix[4] = { L'\\', L'\\', L'?', L'\\' };
@@ -78,10 +79,17 @@ void IndexLevel::Initialize()
 
 
 DirList::DirList()
-	: m_path(L""), m_pathlen(0), m_currindex(-1)
+	: m_path(L""), m_pathlen(0), m_currindex(INDEXLEVEL_NULL_OFFSET)
 {
 	m_indexsize = INDEX_INCREMENT;
 	m_index = (byte *)malloc(m_indexsize);
+}
+
+DirEntry * DirList::DirEntryAdd(WIN32_FIND_DATA const * p_find)	// Creates a DirEntry at the current level
+{
+	DirEntry * direntry = m_dirblocks.DirEntryCreate(p_find); 
+	IndexEntryAdd(direntry); 
+	return direntry;
 }
 
 
@@ -105,8 +113,8 @@ void DirList::IndexGrow()
 int DirList::PathAppend(wchar_t const * p_name)
 {
 	m_path[m_pathlen] = L'\\';
+	wcscpy_s(m_path + m_pathlen + 1, MAX_PATHX - m_pathlen - 3, p_name);
 	m_pathlen += wcslen(p_name) + 1;
-	wcscpy_s(m_path + 1, MAX_PATHX - m_pathlen - 3, p_name);
 	return m_pathlen;
 }
 
@@ -116,34 +124,45 @@ void DirList::Push()
 {
 	IndexLevel		  * currheader = NULL;
 	DirEntryBlock	  * prevblock = NULL;
-	size_t				prevoffset = -1;
+	size_t				previndex = INDEXLEVEL_NULL_OFFSET;
 	short				prevdepth = -1;
 
-	if ( m_currindex >= 0 )
+	if ( m_currindex == INDEXLEVEL_NULL_OFFSET )
+	{
+		// special case for first/root IndexLevel
+		currheader = (IndexLevel *)m_index;
+		m_currindex = 0;
+	}
+	else
 	{
 		// if this isn't the first/root
 		currheader = (IndexLevel *)(m_index + m_currindex);
-		prevoffset = currheader->m_prevheader;
+		previndex = m_currindex;
 		prevdepth = currheader->m_depth;
+		if ( IndexUsed() + sizeof(IndexLevel) >= m_indexsize )
+			IndexGrow();
+		// create new IndexLevel on stack
+		m_currindex = IndexUsed();
+		currheader = GetCurrIndexLevel();
 	}
-	if ( IndexUsed() + sizeof(IndexLevel) >= m_indexsize )
-		IndexGrow();
-	// create new IndexLevel on stack
-	m_currindex = IndexUsed();
-	currheader = GetCurrIndexLevel();
+
 	currheader->Initialize();
 	currheader->m_initblock = m_dirblocks.GetCurrBlock();
 	currheader->m_initoffset = m_dirblocks.GetNextAvail();
-	currheader->m_prevheader = prevoffset;
+	currheader->m_prevheader = previndex;
 	currheader->m_depth = prevdepth + 1;
+	currheader->m_pathlen = (short)m_pathlen;
 }
 
 /// Pop to the previous index, dirblock, diroffset and path
 void DirList::Pop()
 {
 	IndexLevel * currheader = (IndexLevel *)(m_index + m_currindex);
-	IndexLevel * prevheader = (IndexLevel *)(m_index + currheader->m_prevheader);
-	m_path[prevheader->m_pathlen] = L'\0';
+	if ( currheader->m_prevheader != INDEXLEVEL_NULL_OFFSET )
+	{
+		IndexLevel * prevheader = (IndexLevel *)(m_index + currheader->m_prevheader);
+		m_path[prevheader->m_pathlen] = L'\0';
+	}
 	m_currindex = currheader->m_prevheader;
 	m_dirblocks.Popto(currheader->m_initblock, currheader->m_initoffset);
 }
@@ -155,7 +174,7 @@ void DirList::IndexEntryAdd(DirEntry * p_direntry)
 	if ( IndexUsed() + sizeof p_direntry >= m_indexsize )
 		IndexGrow();
 	IndexLevel * indexlevel = GetCurrIndexLevel();
-	indexlevel->m_direntry[indexlevel->m_nEntries] = p_direntry;
+	indexlevel->m_direntry[indexlevel->m_nEntries++] = p_direntry;
 }
 
 
@@ -174,6 +193,13 @@ void DirList::IndexSort()
 
 
 /// Normalizes p_path before setting m_path.  Returns 0 or rc.  Sets volume information 
+/* Converts p_path to a canonical path form to m_path:
+	- Absolute paths, i.e., drive letter with full path or UNC with full path
+	- Network-mapped drive letters are converted to UNC form 
+	- UNC paths (\\server\share\other) are converted into long-name API format: UNC\Server\share\other
+	- No trailing backslash.  
+	- Roots (e.g., c:\ and \\server\share) are represented without the trailing backslash.  They require special treatment since they don't exist as a directory
+*/
 DWORD DirList::SetNormalizedRootPath(wchar_t const * p_path) 
 {
 	union
@@ -189,27 +215,27 @@ DWORD DirList::SetNormalizedRootPath(wchar_t const * p_path)
 							nFreeClusters,
 							nTotalClusters;
 	WCHAR                   volRoot[_MAX_PATH],
-							fullPath[_MAX_PATH];
+							fullpath[_MAX_PATH];
 	int						len;
 	UINT                    driveType;
 
 	m_pathlen = 0;			// zero pathlen if early return from error
-	if ( _wfullpath(fullPath, p_path, DIM(fullPath)) == NULL )
+	if ( _wfullpath(fullpath, p_path, DIM(fullpath)) == NULL )
 		return ERROR_BAD_PATHNAME;
-	if ( wcsncmp(fullPath, L"\\\\", 2) )
+	if ( wcsncmp(fullpath, L"\\\\", 2) )
 	{
-		// not a UNC
-		wcsncpy(volRoot, p_path, 3);		// get first three chars, e.g., "c:\"
+		// not a UNC, yet
+		wcsncpy(volRoot, fullpath, 3);		// get first three chars, e.g., "C:\"
 		volRoot[3] = L'\0';
 		driveType = GetDriveType(volRoot);
 		switch (driveType)
 		{
-		case DRIVE_REMOTE:
+		case DRIVE_REMOTE:					// network mapped drive
 			m_isUNC = true;
-			rc = WNetGetUniversalName(fullPath,
-				REMOTE_NAME_INFO_LEVEL,
-				(PVOID)&info,
-				&sizeBuffer);
+			rc = WNetGetUniversalName(fullpath,
+									REMOTE_NAME_INFO_LEVEL,
+									(PVOID)&info,
+									&sizeBuffer);
 			switch (rc)
 			{
 			case 0:
@@ -219,21 +245,22 @@ DWORD DirList::SetNormalizedRootPath(wchar_t const * p_path)
 				wcscpy(m_path + 3, info.i.lpUniversalName + 1);
 				break;
 			case ERROR_NOT_CONNECTED:
-				wcscpy(m_path, fullPath);
+				wcscpy(m_path, fullpath);
 				break;
 			default:
 				err.SysMsgWrite(34021, rc, L"WNetGetUniversalName(%s)=%ld ",
-					fullPath, rc);
+					fullpath, rc);
 				m_path[0] = L'\0';
 				return rc;
 			}
 			break;
-		case 0:                          // unknown drive
-		case 1:                          // invalid root directory
+		case DRIVE_UNKNOWN:                 // unknown drive
+		case DRIVE_NO_ROOT_DIR:             // invalid root directory
 			m_path[0] = L'\0';
+			m_pathlen = 0;
 			return ERROR_INVALID_DRIVE;
 		default:
-			wcscpy_s(m_path, fullPath);
+			wcscpy_s(m_path, fullpath);
 		}
 	}
 	else
@@ -241,36 +268,35 @@ DWORD DirList::SetNormalizedRootPath(wchar_t const * p_path)
 		m_isUNC = true;
 		driveType = DRIVE_REMOTE;
 		wcscpy(m_path, L"UNC");         // Unicode form is \\?\UNC\server\share\...
-		wcscpy(m_path + 3, fullPath + 1);
-		len = ServerShareCopy(volRoot, fullPath);
+		wcscpy(m_path + 3, fullpath + 1);
+		len = ServerShareCopy(volRoot, fullpath);	// get \\server\share part of UNC
 		if ( len < 0 )
 			return ERROR_BAD_NETPATH;
 	}
 
-	// get \\server\share part of UNC
 	len = (int)wcslen(volRoot);
 	if ( volRoot[len - 1] != L'\\' )
 		wcscpy(volRoot + len, L"\\");
 
-	if ( !GetVolumeInformation(volRoot,
-			m_volinfo.volName,
-			DIM(m_volinfo.volName),
-			&m_volinfo.volser,
-			&maxCompLen,
-			&m_volinfo.fsFlags,
-			m_volinfo.fsName,
-			DIM(m_volinfo.fsName)))
+	if ( !GetVolumeInformation( volRoot,
+								m_volinfo.volName,
+								DIM(m_volinfo.volName),
+								&m_volinfo.volser,
+								&maxCompLen,
+								&m_volinfo.fsFlags,
+								m_volinfo.fsName,
+								DIM(m_volinfo.fsName)))
 	{
 		rc = GetLastError();
 		err.SysMsgWrite(34022, rc, L"GetVolumeInformation(%s)=%ld ", volRoot, rc);
 		return rc;
 	}
 
-	if ( !GetDiskFreeSpace(volRoot,
-			&sectorsPerCluster,
-			&bytesPerSector,
-			&nFreeClusters,
-			&nTotalClusters))
+	if ( !GetDiskFreeSpace( volRoot,
+							&sectorsPerCluster,
+							&bytesPerSector,
+							&nFreeClusters,
+							&nTotalClusters))
 	{
 		rc = GetLastError();
 		err.SysMsgWrite(34023, rc, L"GetDiskFreeSpace(%s)=%ld ", volRoot, rc);
@@ -281,11 +307,13 @@ DWORD DirList::SetNormalizedRootPath(wchar_t const * p_path)
 	m_volinfo.cbVolTotal = (__int64)nTotalClusters * m_volinfo.cbCluster;
 	m_volinfo.cbVolFree = (__int64)nFreeClusters  * m_volinfo.cbCluster;
 	m_pathlen = wcslen(m_path);
+	if ( m_path[m_pathlen - 1] == L'\\' )
+		m_path[--m_pathlen] = L'\0';		// strip off any trailing backslash
 	return 0;
 }
 
 
-/// Tests for the existance of the (last) directory in m_path
+/// Tests for the existance of the (last) directory in m_path, set *p_direntry if there or NULL
 PathExistsResult DirList::PathDirExists(DirEntry ** p_direntry)	// ret-0=not exist, 1=exists, 2=error, 3=file
 {
 	DWORD						rc;
@@ -293,37 +321,24 @@ PathExistsResult DirList::PathDirExists(DirEntry ** p_direntry)	// ret-0=not exi
 	HANDLE						hFind;
 	WIN32_FIND_DATA				findData;		// result of Find*File API
 	PathExistsResult			ret = PathExistsResult::NotExist;
+	bool						bIsRoot = false;
 
-	m_isUNC = false;
-	if ( !wcsncmp(m_path, L"UNC\\", 4) )		// if UNC form, must append * to path
+	if ( m_pathlen == 2 && m_path[1] == L':' )		// is this a root path, e.g., C: or \\server\share
+		bIsRoot = true;
+	else if (m_isUNC)
 	{
-		int							slashcount;		// count of \ path separators
-		// UNC\server\share form.  server starts at apipath+4
+		int						slashcount;		// count of \ path separators
 		m_isUNC = true;
-		for ( p = m_path + 4, slashcount = 2;  *p;  p++ )
-			if ( *p == L'\\' )
+		// UNC\server\share form.  server starts at apipath+4, assuming \\ beginning
+		for (p = m_path + 4, slashcount = 2; *p; p++)
+			if (*p == L'\\')
 				slashcount++;
-		if ( p[-1] == L'\\' )		// if UNC with just share suffixed with backslash
-			if ( slashcount == 4 )
-			{
-				m_pathlen = p - m_path - 1;
-				wcscpy(p, L"*");
-			}
-			else
-				m_pathlen = p - m_path;
-		else
-		{
-			if ( slashcount == 3 )			// if UNC with just share without trailing backslash
-				wcscpy(p, L"\\*");
-			m_pathlen = p - m_path;
-		}
+		if (slashcount == 3)
+			bIsRoot = true;
 	}
-	else
-	{
-		m_pathlen = wcslen(m_path);
-		if ( m_path[m_pathlen - 1] == L'\\' )	// fix path format by removing any trailing backslash
-			m_pathlen--;
-	}
+
+	if ( bIsRoot )							// roots are containers, but dont exist as directories
+		wcscpy(m_path + m_pathlen, L"\\*");	// thus, need to suffix path with \* for FileFind
 
 	hFind = FindFirstFile(m_apipath, &findData);
 	if ( hFind == INVALID_HANDLE_VALUE )
@@ -334,57 +349,33 @@ PathExistsResult DirList::PathDirExists(DirEntry ** p_direntry)	// ret-0=not exi
 		FindClose(hFind);
 	}
 
-	m_path[m_pathlen] = L'\0';  // remove any appended chars
+	m_path[m_pathlen] = L'\0';  // remove appended chars for root check
 
-	switch (rc)
+	if ( bIsRoot && (rc == 0 || rc == ERROR_NO_MORE_FILES) )	// the root can be empty
 	{
-	case ERROR_NO_MORE_FILES:        // root with no dirs/files, not even . or ..
-		findData.cFileName[0] = L'\0';
-	case 0:
-		if ( findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY )
-		{
-			Push();
-			*p_direntry = DirEntryAdd(&findData);
-			ret = PathExistsResult::YesDir;
-		}
-		else
-		{
-			*p_direntry = NULL;
-			ret = PathExistsResult::YesButFile;
-		}
-		break;
-	case ERROR_FILE_NOT_FOUND:
-	case ERROR_PATH_NOT_FOUND:
-		*p_direntry = NULL;
-		// check to see if root directory or root to UNC path because this
-		// will fail without a terminating \* so we need to check it again
-		if ( m_isUNC || (m_pathlen == 2 && m_path[1] == L':') )
-		{
-			wcscpy(m_path + m_pathlen, L"\\*");
-			hFind = FindFirstFile(m_apipath, &findData);
-			m_path[m_pathlen] = L'\0';
-			if ( hFind == INVALID_HANDLE_VALUE )
-				ret = PathExistsResult::NotExist;
-			else
-			{
-				FindClose(hFind);
-				findData.cFileName[0] = L'\0';
-				findData.dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
-				*p_direntry = DirEntryCreate(&findData);
-				ret = PathExistsResult::YesDir;
-			}
-		}
-		else
-			ret = PathExistsResult::NotExist;
-		break;
-	default:
-		err.SysMsgWrite(50011, rc, L"FindFirstFile(%s)=%ld, ", m_path, rc);
+		memset(&findData, 0, sizeof findData);
+		findData.dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+		ret = YesDir;
 	}
+	else if ( rc == 0 )
+	{
+		if ( findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY )
+			ret = YesDir;
+		else
+			ret = YesButFile;
+	}
+
+	Push();			// Push a new index level regardless so an invalid dir will enum 0 children
+	if ( ret == YesDir )
+		*p_direntry = DirEntryAdd(&findData);
+	else
+		*p_direntry = NULL;
+
 	return ret;
 }
 
 
-/// fills the current level of the DirList with FileEntry objects enumerated from the file system path
+/// fills the current level of the DirList with DirEntry objects enumerated from the file system path
 DWORD DirList::ProcessCurrentPath()
 {
 //? Add stats parm and code
@@ -393,6 +384,9 @@ DWORD DirList::ProcessCurrentPath()
 	DWORD					rc = 0;
 	BOOL					bSuccess;
 	int						pathlen = m_pathlen;
+	DirEntry			  * preventry = NULL,
+						  * currentry;
+	bool					bSorted = true;
 
 	wcscpy(m_path + pathlen, L"\\*");			// suffix path with \* for FindFileFist
 	// iterate through directory entries and add them as DirEntry objects
@@ -405,49 +399,89 @@ DWORD DirList::ProcessCurrentPath()
 			continue;							// ignore directory names '.' and '..'
 		if ( FilterReject(findEntry.cFileName, gOptions.include, gOptions.exclude) )
 			continue;
-		DirEntryAdd(&findEntry);
+		currentry = DirEntryAdd(&findEntry);
+		if ( bSorted && preventry )				// bSorted indicates whether the file system returned items in canonical order
+			bSorted = _wcsicmp(currentry->cFileName, preventry->cFileName) > 0;
+		preventry = currentry;
 	}
 	rc = GetLastError();
 	FindClose(hDir);
-	return rc == ERROR_NO_MORE_FILES ? 0 : rc;
+	if ( !bSorted )								// if items out of order, sort them
+		IndexSort();
+	if ( rc == 0 || rc == ERROR_NO_MORE_FILES )
+		return 0;
+	return rc;
 }
 
 
 /// Creates a new DirEntry and adds it to the next available DirEntryBlock
-DirEntry * DirBlockCollection::DirEntryAdd(WIN32_FIND_DATA const * p_find)
+DirEntry * DirBlockCollection::DirEntryCreate(WIN32_FIND_DATA const * p_find)
 {
-	size_t			cbFilename = WcsByteLen(p_find->cFileName);
+	size_t			cbDirEntry = DirEntry::ByteLength(p_find);
 
-	if ( cbFilename + m_nextavail >= DirBlocksize )
+	if ( cbDirEntry + m_nextavail >= DirBlocksize )
 	{
-		// if no room, see if set to next block.  If none, create it and end of list
+		// if no room, set to next block.  If none, create/insert it 
 		DirEntryBlock * newblock = (DirEntryBlock *)m_currblock->right;
 		if ( newblock == NULL )
 			Insert( newblock = new DirEntryBlock() );
 		m_currblock = newblock;
 		m_nextavail = 0;
 	}
-	DirEntry * de = m_currblock->GetDirEntry(m_nextavail);
-	de->attrFile = p_find->dwFileAttributes;
-	de->cbFile = INT64R(p_find->nFileSizeLow, p_find->nFileSizeHigh);
-	de->ftimeLastWrite = p_find->ftLastWriteTime;
-	memcpy(de->cFileName, p_find->cFileName, cbFilename);
-	m_nextavail += m_nextavail;
-	return de;
+	DirEntry * direntry = m_currblock->GetDirEntry(m_nextavail);
+	direntry->attrFile = p_find->dwFileAttributes;
+	direntry->cbFile = INT64R(p_find->nFileSizeLow, p_find->nFileSizeHigh);
+	direntry->ftimeLastWrite = p_find->ftLastWriteTime;
+	wcscpy(direntry->cFileName, p_find->cFileName);
+	m_nextavail += cbDirEntry;
+	return direntry;
+}
+
+/// Constructor to enumerate current index level of p_dirlist
+DirListEnum::DirListEnum(DirList * p_dirList)						// give the DirList to be enumerated for the current path
+	: m_dirList(p_dirList), m_nCurrIndex(0) 
+{
+	m_dirList->Push(); 
+}
+
+
+/// Advance to next DirList* item in enumeration unless alread at EOL
+bool DirListEnum::Advance()
+{
+	IndexLevel * indlevel = m_dirList->GetCurrIndexLevel();
+
+	if ( m_nCurrIndex > indlevel->m_nEntries )
+		return false;
+	m_nCurrIndex++;
+	return true;
+}
+
+
+bool DirListEnum::EOL() const								// end of list?
+{
+	IndexLevel * indlevel = m_dirList->GetCurrIndexLevel();
+
+	if ( m_nCurrIndex < indlevel->m_nEntries )
+		return false;
+	return true;
 }
 
 
 /// returns the current DirEntry* and advances, or NULL if no more
 DirEntry * DirListEnum::GetNext()
 {
-	IndexLevel * i = m_dirList->GetCurrIndexLevel();
-	return m_nCurrIndex >= i->m_nEntries ? NULL : i->m_direntry[m_nCurrIndex++];
+	IndexLevel * indlevel = m_dirList->GetCurrIndexLevel();
+	if ( m_nCurrIndex >= indlevel->m_nEntries )
+		return NULL;
+	return indlevel->m_direntry[m_nCurrIndex++];
 }
 
 
 /// returns the current DirEntry* without advancing, or NULL if no more
 DirEntry * DirListEnum::Peek()
 {
-	IndexLevel * i = m_dirList->GetCurrIndexLevel();
-	return m_nCurrIndex >= i->m_nEntries ? NULL : i->m_direntry[m_nCurrIndex];
+	IndexLevel * indlevel = m_dirList->GetCurrIndexLevel();
+	if ( m_nCurrIndex >= indlevel->m_nEntries )
+		return NULL;
+	return indlevel->m_direntry[m_nCurrIndex];
 }

@@ -23,7 +23,7 @@
 // globals
 Options                     gOptions;   // global options
 DirList						gSource;	// global source state
-DirList						gTarget;	// blobal target state
+DirList						gTarget;	// global target state
 
 int
    wmain(
@@ -31,12 +31,13 @@ int
       WCHAR const         ** argv         // in -argument values
    )
 {
-   DWORD                     rc;
+	WCHAR const *x[] = { L"NetDittoG", L"\\temp\\x", L"\\temp\\xxx", L"/-u", L"/m", L"/l\\temp\\x.log", NULL };
+	DWORD                     rc;
    DirEntry                * srcEntry,
                            * tgtEntry;
    time_t                    t;
 
-   if ( rc = ParmParse(argv) )
+   if ( rc = ParmParse(x) )
       return rc;
    if ( gLogName )
       err.LogOpen(gLogName, 0, -1);
@@ -96,16 +97,15 @@ int
 
 void _stdcall OptionsConstruct()
 {
-	memset(&gOptions, 0, sizeof gOptions);
 	gOptions.findAttr = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_READONLY
-		| FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_DIRECTORY
-		| FILE_ATTRIBUTE_ARCHIVE;
+					| FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_DIRECTORY
+					| FILE_ATTRIBUTE_ARCHIVE;
 
 	gOptions.copyBuffer = (PBYTE)VirtualAlloc(NULL,
-		gOptions.sizeBuffer = COPYBUFFSIZE,
-		MEM_COMMIT,
-		PAGE_READWRITE);
-	if (!gOptions.copyBuffer)
+											gOptions.sizeBuffer = COPYBUFFSIZE,
+											MEM_COMMIT,
+											PAGE_READWRITE);
+	if ( !gOptions.copyBuffer )
 		err.SysMsgWrite(50998, GetLastError(), L"CopyBuffer VirtualAlloc(%u)=%ld ",
 			gOptions.sizeBuffer, GetLastError());
 }

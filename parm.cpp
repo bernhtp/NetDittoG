@@ -533,7 +533,7 @@ DWORD _stdcall                            // ret-0=success
          }
          else if ( !gTarget.Path()[0] )
          {
-			 rc = gSource.SetNormalizedRootPath(currArg);
+			 rc = gTarget.SetNormalizedRootPath(currArg);
             // if source is null, we copy the target options to it because some
             // behavior is dependant on this being filled in.
             if ( !wcscmp(gSource.Path(), L"-") )
@@ -811,7 +811,7 @@ DWORD _stdcall                            // ret-number of warnings/fixes
 {
    DWORD                     nFix = 0;
 
-   // if neither source or target don't support ACLs
+   // if neither source nor target support ACLs
    if ( !((gSource.GetFSFlags() | gTarget.GetFSFlags()) & FS_PERSISTENT_ACLS) )
    {
       if ( gOptions.global & OPT_GlobalBackup )
@@ -824,14 +824,14 @@ DWORD _stdcall                            // ret-number of warnings/fixes
 
       if ( gOptions.dir.perms | gOptions.file.perms )
       {
-         err.MsgWrite(10013, L"Permissions replication ignored because both source "
-                             "and target don't support ACLs");
+         err.MsgWrite(10013, L"Permissions replication ignored: source/target "
+                             "must both support ACLs");
          gOptions.dir.perms = gOptions.file.perms = 0;
          nFix++;
       }
    }
 
-   // if either source or target don't support ACLs
+   // Turn off compression significance if either source/target don't support compression
    if ( !(gSource.GetFSFlags() & gTarget.GetFSFlags() & FS_FILE_COMPRESSION) )
    {
       if ( gOptions.attrSignif & FILE_ATTRIBUTE_COMPRESSED )

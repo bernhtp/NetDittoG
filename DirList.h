@@ -1,18 +1,24 @@
-#pragma warning(disable : 4200)		// use zero-length array extension for dynamic arrays
+#pragma warning(disable : 4200)	// use zero-length array extension for dynamic arrays
 
 const int MAX_PATHX = 32764;	// max path char length exluding \\?\ long-path prefix	
 enum PathExistsResult { NotExist, YesDir, ErrorNo, YesButFile };	// return states for PathDirExists
 
 /// DirEntry objects are packed consecutively in the buffer.  Note the variable length
-struct DirEntry              // directory entry summary
+struct DirEntry					// directory entry summary
 {
 	FILETIME				ftimeLastWrite;			// last written
 	__int64					cbFile;					// size of file in bytes
 	DWORD					attrFile;				// file/dir attribute
-	WCHAR					cFileName[1];			// file/dir name (varying length at least 1)
+	WCHAR					cFileName[1];			// file/dir name (varying length at least 1 for null)
 
 	size_t		ByteLength() const					// returns byte length of this DirEntry 
-					{ return sizeof *this + (wcslen(cFileName) * sizeof cFileName[0]); }
+	{
+		return sizeof *this + (wcslen(cFileName) * sizeof cFileName[0]);
+	}
+	static size_t ByteLength(WIN32_FIND_DATA const * p_find) // returns byte length of a DirEntry created with this p_find 
+	{
+		return sizeof (DirEntry) + (wcslen(p_find->cFileName) * sizeof cFileName[0]);
+	}
 };
 
 DirEntry * _stdcall DirEntryCreate(WIN32_FIND_DATAW const * p_find);
@@ -62,13 +68,11 @@ class DirBlockCollection : public TListCollection
 public:
 	DirBlockCollection() { m_currblock = new DirEntryBlock(); Insert((TList*)m_currblock); m_nextavail = 0; }
 
-	DirEntry *		DirEntryAdd(WIN32_FIND_DATA const * P_find);	// adds DirEntry to next available block space
-	DirEntryBlock *	GetCurrBlock() { return m_currblock; }
-	size_t			GetNextAvail() { return m_nextavail; }
-	void			Popto(DirEntryBlock * p_block, size_t p_nextavail)
-	{
-		m_currblock = p_block; m_nextavail = p_nextavail;
-	}
+	DirEntry *		DirEntryCreate(WIN32_FIND_DATA const * P_find);	// adds DirEntry to next available block space
+	DirEntryBlock *	GetCurrBlock() { return m_currblock; }			// returns curr DirEntryBlock buffer of DirEntry objects
+	size_t			GetNextAvail() { return m_nextavail; }			// Returns the next available offset for a new DirEntry
+	void			Popto(DirEntryBlock * p_block, size_t p_nextavail)	// Pops the curr DirBlock and its avail offset to previous velues
+						{ m_currblock = p_block; m_nextavail = p_nextavail; }
 };
 
 
@@ -132,11 +136,13 @@ public:
 	DirEntry *				m_direntry[0];		// zero of more (m_nEntries) DirEntry * pointers for level index
 	
 	void			Initialize();				// lays in and initialzies the IndexHeader within the DirEntryIndex
-	size_t			ByteSize() const { return sizeof *this + m_nEntries * sizeof m_direntry[0]; }
+	size_t			ByteSize() const			// Returns size in bytes of this index level including variable m_direntry[x]
+						{ return sizeof *this + m_nEntries * sizeof m_direntry[0]; }
+	DirEntry *		GetDirEntry(int p_n)		// Returns the DirEntry at p_n
+						{ return m_direntry[p_n]; }
 };
 
-//IndexLevel x;
-//int y = sizeof x;
+static const size_t INDEXLEVEL_NULL_OFFSET = -1;
 
 class DirList
 {
@@ -157,10 +163,9 @@ class DirList
 	bool					m_isUNC;			// is m_path in UNC (\\server\share) form?
 	VolInfo					m_volinfo;			// volume information for the m_path base
 
-	DirEntry *		DirEntryAdd(WIN32_FIND_DATA const * p_find)	// Creates a DirEntry at the current level
-						{ DirEntry * ret = m_dirblocks.DirEntryAdd(p_find); IndexEntryAdd(ret); return ret; }
+	DirEntry *		DirEntryAdd(WIN32_FIND_DATA const * p_find);// Creates a DirEntry at the current level
 	void			IndexEntryAdd(DirEntry * p_direntry);	// adds a DirEntry* index entry
-	size_t			IndexUsed() const { return m_currindex + ((IndexLevel *)m_currindex)->ByteSize(); } // get index byte size
+	size_t			IndexUsed()  { return m_currindex + GetCurrIndexLevel()->ByteSize(); } // get index used in bytes
 	void			IndexGrow();							// grow index when more room is needed
 	void			IndexSort();							// sort DirEntry* slots in current level by cFileName
 public:
@@ -185,7 +190,9 @@ public:
 	PathExistsResult PathDirExists(DirEntry ** p_direnty);	// Tests existance of m_path.  ret-0=not exist, 1=exists, 2=error, 3=file
 	size_t			PathLength() const { return m_pathlen; }// returns current path length (not including apipath prefix)
 	void			PathTrunc()								// truncates m_path to current IndexLevel->m_pathlen
-						{ m_path[GetCurrIndexLevel()->m_pathlen] = L'\0'; }
+	{
+		m_pathlen = GetCurrIndexLevel()->m_pathlen; m_path[m_pathlen] = L'\0';
+	}
 	DWORD			ProcessCurrentPath();					// enumerate the current path into the buffer
 	size_t			SetRootPath(wchar_t const * p_path)		// sets the path string 
 						{ wcscpy_s(m_path, p_path); m_pathlen = wcslen(m_path); return m_pathlen;}
@@ -198,12 +205,10 @@ class DirListEnum
 	DirList				  * m_dirList;			// DirList being enumerated
 	int						m_nCurrIndex;		// current index number in the enumeration
 public:
-	DirListEnum(DirList * p_dirList)						// give the DirList to be enumerated for the current path
-		: m_dirList(p_dirList), m_nCurrIndex(0) { m_dirList->Push(); }
+	DirListEnum(DirList * p_dirList);						// give the DirList to be enumerated for the current path
 	~DirListEnum() { m_dirList->Pop(); }					// destructor ensures a Pop of the IndexLevel
 	DirEntry *		GetNext();								// return next DirEntry and advance or NULL if EOL
 	DirEntry *		Peek();									// Get current DirEntry without advancing - NULL if EOL
-	bool			EOL() const								// end of list?
-						{ return m_nCurrIndex < m_dirList->GetCurrIndexLevel()->m_nEntries; }
+	bool			EOL() const;							// end of list?
+	bool			Advance();								// Advance m_nCurrIndex to next index number
 };
-
