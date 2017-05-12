@@ -78,8 +78,8 @@ void _stdcall                              // ret-0=success
 {
 	int						comp;				// source/target operation result
 
-	DirEntry			  * srcEntry = NULL,	// current source entry
-                          * tgtEntry = NULL;	// current target entry
+	DirEntry			  * srcEntry,			// current source entry
+                          * tgtEntry;			// current target entry
 	DirListEnum				srcEnum(&gSource);
 	DirListEnum				tgtEnum(&gTarget);
 	DWORD					rc = 0;
@@ -89,7 +89,7 @@ void _stdcall                              // ret-0=success
 		if ( p_srcDirEntry->attrFile & FILE_ATTRIBUTE_DIRECTORY )
 		{
 			if ( rc = gSource.ProcessCurrentPath() )
-				return rc;	// kick out with bad error if can't enum a directory we know we have
+				return rc;	// kick out with bad error if can't enum a directory known to be there
 		}
 		else
 			MismatchSourceNotDir(p_srcDirEntry, p_tgtDirEntry);
@@ -127,7 +127,7 @@ void _stdcall                              // ret-0=success
 
 		if ( tgtEntry )
 		{
-			if ( !srcEntry )
+			if ( !srcEntry && gSource.PathLength() != 0 )
 				gSource.PathAppend(tgtEntry->cFileName);
 			gTarget.PathAppend(tgtEntry->cFileName);
 			tgtEnum.Advance();

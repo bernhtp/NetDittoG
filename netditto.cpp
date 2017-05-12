@@ -31,67 +31,70 @@ int
       WCHAR const         ** argv         // in -argument values
    )
 {
-	WCHAR const *x[] = { L"NetDittoG", L"\\temp\\x", L"\\temp\\xxx", L"/-u", L"/m", L"/l\\temp\\x.log", NULL };
+	WCHAR const *x[] = { L"NetDittoG", L"-", L"\\temp\\xxx", L"/-u", L"/m", L"/df-r", L"/l\\temp\\x.log", NULL };
 	DWORD                     rc;
-   DirEntry                * srcEntry,
-                           * tgtEntry;
-   time_t                    t;
+	DirEntry                * srcEntry,
+							* tgtEntry;
+	time_t                    t;
 
-   if ( rc = ParmParse(x) )
-      return rc;
-   if ( gLogName )
-      err.LogOpen(gLogName, 0, -1);
-   OptionsConstruct();
-   if ( gOptions.global & OPT_GlobalBackup )
-      BackupPriviledgeSet();
+	if ( rc = ParmParse(x) )
+		return rc;
+	if ( gLogName )
+		err.LogOpen(gLogName, 0, -1);
+	OptionsConstruct();
+	if ( gOptions.global & OPT_GlobalBackup )
+		BackupPriviledgeSet();
 
-   PathExistsResult ret;
-   if ( !wcscmp(gSource.Path(), L"-") )
-      srcEntry = NULL;
-   else
-   {
-	   ret = gSource.PathDirExists(&srcEntry);
-	   if ( ret != PathExistsResult::YesDir )
-         err.MsgWrite(50001, L"Source directory base, %s, does not exist (%lu)",
-                             gSource.Path(), ret);
-   }
-   ret = gTarget.PathDirExists(&tgtEntry);
-   if ( rc != PathExistsResult::YesDir )
-      if ( !(gOptions.global & OPT_GlobalMakeTgt) || srcEntry == NULL )
-         err.MsgWrite(50004, L"Target directory(%s) missing (%ld): "
-                             L"/m not specified or '-' specified as source",
-                             gTarget.Path(), ret);
+	PathResult ret;
+	if (!wcscmp(gSource.Path(), L"-"))
+	{
+		srcEntry = NULL;
+		gSource.SetNullRoot();
+	}
+	else
+	{
+		ret = gSource.PathExists(&srcEntry);
+		if ( ret != PathResult::PathYesDir )
+			err.MsgWrite(50001, L"Source directory base, %s, does not exist (%lu)",
+								gSource.Path(), ret);
+	}
+	ret = gTarget.PathExists(&tgtEntry);
+	if ( ret != PathResult::PathYesDir )
+		if ( !(gOptions.global & OPT_GlobalMakeTgt) || srcEntry == NULL )
+			err.MsgWrite(50004, L"Target directory(%s) missing (%ld): "
+								L"/m not specified or '-' specified as source",
+								gTarget.Path(), ret);
 
-   if ( !_wcsicmp(gSource.Path(), gTarget.Path()) )
-      err.MsgWrite(50005, L"Source path (%s) same as target",
-                          gSource.Path());
+	if ( !_wcsicmp(gSource.Path(), gTarget.Path()) )
+		err.MsgWrite(50005, L"Source path (%s) same as target",
+							gSource.Path());
 
-   OptionsResolve();
-   DisplayInit(1);
-   time(&t);
-   if ( gOptions.global & OPT_GlobalSilent )
-      err.LevelBeepSet(9);
-   err.MsgWrite(0, L"%-.24s S=%s T=%s O=%X", _wctime(&t), gSource.Path(),
-                   gTarget.Path(), gOptions.global);
-   DisplayOptions();
-   DisplayPaths();
-   DisplayPathOffset(gTarget.Path());
+	OptionsResolve();
+	DisplayInit(1);
+	time(&t);
+	if ( gOptions.global & OPT_GlobalSilent )
+		err.LevelBeepSet(9);
+	err.MsgWrite(0, L"%-.24s S=%s T=%s O=%X", _wctime(&t), gSource.Path(),
+					gTarget.Path(), gOptions.global);
+	DisplayOptions();
+	DisplayPaths();
+	DisplayPathOffset(gTarget.Path());
 
-   StatsTimerCreate();
-   if ( gOptions.spaceMinFree  ||  gOptions.spaceInterval )
-      SpaceCheckStart();
+	StatsTimerCreate();
+	if ( gOptions.spaceMinFree  ||  gOptions.spaceInterval )
+		SpaceCheckStart();
 
-   MatchEntries(0, srcEntry, tgtEntry);
+	MatchEntries(0, srcEntry, tgtEntry);
 
-   gOptions.fState |= FLAG_Shutdown;
-   StatsTimerTerminate();
-   if ( gOptions.spaceMinFree  ||  gOptions.spaceInterval )
-      SpaceCheckTerminate();
-   DisplayTime();
-   time(&t);
-   err.MsgWrite(0, L"End time=%-.24s", _wctime(&t));
-   DisplayInit(0);
-   return 0;
+	gOptions.fState |= FLAG_Shutdown;
+	StatsTimerTerminate();
+	if ( gOptions.spaceMinFree  ||  gOptions.spaceInterval )
+		SpaceCheckTerminate();
+	DisplayTime();
+	time(&t);
+	err.MsgWrite(0, L"End time=%-.24s", _wctime(&t));
+	DisplayInit(0);
+	return 0;
 }
 
 

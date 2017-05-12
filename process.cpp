@@ -747,7 +747,7 @@ DWORD _stdcall
       DirEntry const       * tgtEntry     // in -current target entry processed
    )
 {
-   DWORD                     rc;
+   DWORD                     rc = 0;
    LogActions                log = {L' ', L' ', L' '};
 
    if ( !tgtEntry )

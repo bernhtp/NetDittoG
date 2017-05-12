@@ -314,13 +314,13 @@ DWORD DirList::SetNormalizedRootPath(wchar_t const * p_path)
 
 
 /// Tests for the existance of the (last) directory in m_path, set *p_direntry if there or NULL
-PathExistsResult DirList::PathDirExists(DirEntry ** p_direntry)	// ret-0=not exist, 1=exists, 2=error, 3=file
+PathResult DirList::PathExists(DirEntry ** p_direntry)	// ret-0=not exist, 1=exists, 2=error, 3=file
 {
 	DWORD						rc;
 	wchar_t					  * p;
 	HANDLE						hFind;
 	WIN32_FIND_DATA				findData;		// result of Find*File API
-	PathExistsResult			ret = PathExistsResult::NotExist;
+	PathResult					ret = PathResult::PathNotExist;
 	bool						bIsRoot = false;
 
 	if ( m_pathlen == 2 && m_path[1] == L':' )		// is this a root path, e.g., C: or \\server\share
@@ -355,18 +355,18 @@ PathExistsResult DirList::PathDirExists(DirEntry ** p_direntry)	// ret-0=not exi
 	{
 		memset(&findData, 0, sizeof findData);
 		findData.dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
-		ret = YesDir;
+		ret = PathYesDir;
 	}
 	else if ( rc == 0 )
 	{
 		if ( findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY )
-			ret = YesDir;
+			ret = PathYesDir;
 		else
-			ret = YesButFile;
+			ret = PathYesButFile;
 	}
 
 	Push();			// Push a new index level regardless so an invalid dir will enum 0 children
-	if ( ret == YesDir )
+	if ( ret == PathYesDir )
 		*p_direntry = DirEntryAdd(&findData);
 	else
 		*p_direntry = NULL;

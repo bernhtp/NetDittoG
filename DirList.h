@@ -1,7 +1,7 @@
 #pragma warning(disable : 4200)	// use zero-length array extension for dynamic arrays
 
 const int MAX_PATHX = 32764;	// max path char length exluding \\?\ long-path prefix	
-enum PathExistsResult { NotExist, YesDir, ErrorNo, YesButFile };	// return states for PathDirExists
+enum PathResult { PathNull, PathNotExist, PathYesDir, PathErrorNo, PathYesButFile };// return states for PathDirExists
 
 /// DirEntry objects are packed consecutively in the buffer.  Note the variable length
 struct DirEntry					// directory entry summary
@@ -162,7 +162,7 @@ class DirList
 	size_t					m_pathlen;			// char length of the current m_path value (not including m_apipath prefix)
 	bool					m_isUNC;			// is m_path in UNC (\\server\share) form?
 	VolInfo					m_volinfo;			// volume information for the m_path base
-	StatsCommon			  * m_stats;			// scan stats common to source and target
+	StatsCommon			  * m_stats;			// sDir can stats common to source and target
 
 	DirEntry *		DirEntryAdd(WIN32_FIND_DATA const * p_find);// Creates a DirEntry at the current level
 	void			IndexEntryAdd(DirEntry * p_direntry);	// adds a DirEntry* index entry
@@ -188,15 +188,15 @@ public:
 	DWORD			SetNormalizedRootPath(wchar_t const * p_path);	// Tests and Normalizes p_path before setting m_path.  Returns 0 or rc
 	int				PathAppend(wchar_t const * p_dir);		// append a dir element to m_path and return the result length
 	wchar_t const * Path() const { return m_path; }			// returns the path string 
-	PathExistsResult PathDirExists(DirEntry ** p_direnty);	// Tests existance of m_path.  ret-0=not exist, 1=exists, 2=error, 3=file
+	PathResult		PathExists(DirEntry ** p_direnty);		// Tests existance of m_path.  ret-0=not exist, 1=exists, 2=error, 3=file
 	size_t			PathLength() const { return m_pathlen; }// returns current path length (not including apipath prefix)
 	void			PathTrunc()								// truncates m_path to current IndexLevel->m_pathlen
-	{
-		m_pathlen = GetCurrIndexLevel()->m_pathlen; m_path[m_pathlen] = L'\0';
-	}
+						{ m_pathlen = GetCurrIndexLevel()->m_pathlen; m_path[m_pathlen] = L'\0'; }
 	DWORD			ProcessCurrentPath();					// enumerate the current path into the buffer
 	size_t			SetRootPath(wchar_t const * p_path)		// sets the path string 
 						{ wcscpy_s(m_path, p_path); m_pathlen = wcslen(m_path); return m_pathlen;}
+	void			SetNullRoot()
+						{ m_path[m_pathlen = 0] = L'\0'; Push(); }
 };
 
 
