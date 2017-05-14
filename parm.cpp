@@ -18,8 +18,7 @@
 
 #include "netditto.hpp"
 
-// parm state defines
-#define PS_EXCLUDE 0x0001
+enum ParmState {PSInvalid, PSNone, PSSourceSet, PSTargetSet, PSFilterInclude, PSFilterExclude, PSDirFilterExclude};
 
 //-----------------------------------------------------------------------------
 // Adds the argument string to the end of the argument list and sets the head
@@ -306,83 +305,84 @@ short _stdcall                            // ret-0=success
 }
 
 static void
-   Usage(
-      bool                   bDetail       // in -true = show detail
-   )
+	Usage(
+		bool					bDetail       // in -true = show detail
+	)
 {
-   wprintf(L"Usage: NetDitto source dest [/option1 ... /optionN] [filter1 . . . filterN]\n");
-   if ( bDetail )
-      printf(" source   source directory.  Hyphen (-) is a specially reserverd symbol for\n"
-             "          a null source (used to delete destination components)\n"
-             " dest     destination directory.  If this does not already exist, the /m\n"
-             "          switch must be specified.\n"
-             " filter   Used to specify individual files or wildcards, e.g., *.xl? will\n"
-             "          match all file with .xl? extensions (for Excel).  Filters\n"
-             "          following an /x option are exclude filters, which take\n"
-             "          precedence over include filters.  Without any filter, all files\n"
-             "          are selected.\n"
-             " @filename The at sign (@) specifies that the following string is a file\n"
-             "          name to open and use as additional command line specification.\n"
-             "/switches preceding the letter with a hyphen turns the switch off,\n"
-             "          e.g., /-u turns off update\n"
-             " /a       Make the archive attribute bit significant in processing, both\n"
-             "          for compare and replication.  Default is off.\n"
-             " /d       Specify directory object actions.  See /fd section\n"
-             " /f       Specify file object actions.  See /fd section\n"
-             " /h       Process hidden and system files on target for update and delete.\n"
-             "          Default is on.\n"
-             " /l	      Specifies that logging will take place.  The /l may be immediately\n"
-             "          (no space) followed by a space specifying the path/name of the log\n"
-             "          file.  Otherwise, 'NetDitto.log' is the default name in the\n"
-             "          current working drive/directory.\n"
-             " /m       Make (create ala MkDir) the dest directory if it does not exist.\n"
-             " /n       Newer:  Only consider target files different when source is newer\n"
-             "          as determined by examing the file time/date last written.  Default\n"
-             "          is on.\n"
-             " /o       Optimize:  Consider files with the same timestamp and size to be\n"
-             "          identical.  Default is on.\n"
-             " /r       Process read-only target files (i.e., for delete/update actions).\n"
-             "          With this turned off, read-only target files are not considered\n"
-             "          for any processing, including comparison.  Default is on.\n"
-             " /s       Display status and statistics display in real time.  When this\n"
-             "          is turned off, no status and statistics are displayed.  \n"
-             "          Default is on.\n"
-             " /sd      Show detail status information on the bottom line of screen.\n"
-             "          Default is on.\n"
-             " /sm      Show detail matched information (no differences detected) on the\n"
-             "          bottom of the screen and in the log.  Default is on.  Turning\n"
-             "          this off is a convenient means to show only difference both on\n"
-             "          the screen and in the log.\n"
-             " /t       Consider directory timestamps significant and replicate them per\n"
-             "          actions specified (i.e., directory attribute update).  Without\n"
-             "          this, target directories retain their timestamps and get the\n"
-             "          current timestamp when created.  Default is on.\n"
-             " /u       Update target with specified differences.  Turning this off\n"
-             "          means compare only.  Default is on.\n"
-             " /x       Subsequent file/wildcards are exclude specifications.  Default\n"
-             "          is off.\n"
-             " /#       # represents one or more decimal digits for the max directory\n"
-             "          recursion depth, e.g., /2 means only process two levels down\n"
-             "          from the starting source and target directory levels.  Default\n"
-             "          is 255 (infinite).\n"
-             " /as=     Specifies which attributes are considered significant and\n"
-             "          replicated to dest.  A minus sign turns off significance for\n"
-             "          the following attributes, e.g., /as=-c turns off the\n"
-             "          replication of compression state.\n"
-             " /backup  Uses backup/restore mode (if available) to circumvent security\n"
-             "          and replicate security for new and updated files/dirs\n"
-             " /backupforce  Same as /backup but forces all dirs/files to be replicated\n"
-             "          so all security is always replicated.\n\n"
-             " /{fd}{cap*}[+-=]{mur*}\n"
-             "   fd     One or both of these must be specified representing files and\n"
-             "          directories.\n"
-             "   cap*   Zero or more components (contents, attributes, permissions) or\n"
-             "          * for all.  None means '*'.\n"
-             "   +-=    Exactly one of the operators for add, delete or set actions to\n"
-             "          those specified.\n"
-             "   mur*   One or more actions (make, update, remove), or * for all.\n"
-            );
-
+	wprintf(L"Usage: NetDitto source dest [/option1 ... /optionN] [filter1 . . . filterN]\n");
+	if ( bDetail )
+		wprintf(L" source   source directory.  Hyphen (-) is a specially reserverd symbol for\n"
+				"          a null source (used to delete destination components)\n"
+				" dest     destination directory.  If this does not already exist, the /m\n"
+				"          switch must be specified.\n"
+				" filter   Used to specify individual files or wildcards, e.g., *.xl? will\n"
+				"          match all file with .xl? extensions (for Excel).  Filters\n"
+				"          following an /x option are exclude filters, which take\n"
+				"          precedence over include filters.  Without any filter, all files\n"
+				"          are selected.\n"
+				" @filename The at sign (@) specifies that the following string is a file\n"
+				"          name to open and use as additional command line specification.\n"
+				"/switches preceding the letter with a hyphen turns the switch off,\n"
+				"          e.g., /-u turns off update\n"
+				" /a       Make the archive attribute bit significant in processing, both\n"
+				"          for compare and replication.  Default is off.\n"
+				" /d       Specify directory object actions.  See /fd section\n"
+				" /f       Specify file object actions.  See /fd section\n"
+				" /h       Process hidden and system files on target for update and delete.\n"
+				"          Default is on.\n"
+				" /l	      Specifies that logging will take place.  The /l may be immediately\n"
+				"          (no space) followed by a space specifying the path/name of the log\n"
+				"          file.  Otherwise, 'NetDitto.log' is the default name in the\n"
+				"          current working drive/directory.\n"
+				" /m       Make (create ala MkDir) the dest directory if it does not exist.\n"
+				" /n       Newer:  Only consider target files different when source is newer\n"
+				"          as determined by examing the file time/date last written.  Default\n"
+				"          is on.\n"
+				" /o       Optimize:  Consider files with the same timestamp and size to be\n"
+				"          identical.  Default is on.\n"
+				" /r       Process read-only target files (i.e., for delete/update actions).\n"
+				"          With this turned off, read-only target files are not considered\n"
+				"          for any processing, including comparison.  Default is on.\n"
+				" /s       Display status and statistics display in real time.  When this\n"
+				"          is turned off, no status and statistics are displayed.  \n"
+				"          Default is on.\n"
+				" /sd      Show detail status information on the bottom line of screen.\n"
+				"          Default is on.\n"
+				" /sm      Show detail matched information (no differences detected) on the\n"
+				"          bottom of the screen and in the log.  Default is on.  Turning\n"
+				"          this off is a convenient means to show only difference both on\n"
+				"          the screen and in the log.\n"
+				" /t       Consider directory timestamps significant and replicate them per\n"
+				"          actions specified (i.e., directory attribute update).  Without\n"
+				"          this, target directories retain their timestamps and get the\n"
+				"          current timestamp when created.  Default is on.\n"
+				" /u       Update target with specified differences.  Turning this off\n"
+				"          means compare only.  Default is on.\n"
+				" /x       Subsequent file/wildcards are exclude file specifications.  Default\n"
+				"          is off.\n"
+				" /xd      Subsequent file/wildcards are exclude dir specifications.  Default\n"
+				"          is off.\n"
+				" /#       # represents one or more decimal digits for the max directory\n"
+				"          recursion depth, e.g., /2 means only process two levels down\n"
+				"          from the starting source and target directory levels.  Default\n"
+				"          is 255 (infinite).\n"
+				" /as=     Specifies which attributes are considered significant and\n"
+				"          replicated to dest.  A minus sign turns off significance for\n"
+				"          the following attributes, e.g., /as=-c turns off the\n"
+				"          replication of compression state.\n"
+				" /backup  Uses backup/restore mode (if available) to circumvent security\n"
+				"          and replicate security for new and updated files/dirs\n"
+				" /backupforce  Same as /backup but forces all dirs/files to be replicated\n"
+				"          so all security is always replicated.\n\n"
+				" /{fd}{cap*}[+-=]{mur*}\n"
+				"   fd     One or both of these must be specified representing files and\n"
+				"          directories.\n"
+				"   cap*   Zero or more components (contents, attributes, permissions) or\n"
+				"          * for all.  None means '*'.\n"
+				"   +-=    Exactly one of the operators for add, delete or set actions to\n"
+				"          those specified.\n"
+				"   mur*   One or more actions (make, update, remove), or * for all.\n"
+			);
 }
 
 
@@ -391,168 +391,167 @@ static void
 // Parses/processes a single parm argument string from the command line
 //-----------------------------------------------------------------------------
 static
-DWORD _stdcall                            // ret-0=success
-   ParmArgProcess(
-      WCHAR   const        * currArg     ,// in -current argument to process
-      USHORT               * state        // i/o-state flags
-   )
+DWORD _stdcall							 // ret-0=success
+	ParmArgProcess(
+		WCHAR const		  * p_currArg	,// in -current argument to process
+		ParmState		  * p_state		 // i/o-state for interpreting includes/excludes/paths
+	)
 {
-   DWORD                     rc = 0;
-   BOOL                      negative = 0;
-   DWORD                     globalChangeMask = 0;
-   WCHAR const             * errMsg;
+	DWORD                     rc = 0;
+	BOOL                      negative = 0;
+	DWORD                     globalChangeMask = 0;
+	WCHAR const             * errMsg;
 
-   switch ( currArg[0] )
-   {
-      case L'/':
-         if ( currArg[1] == L'-' )
-         {
-            negative = 1;
-            currArg++;
-         }
-         else if ( currArg[1] == L'+' )
-            currArg++;
+	switch ( p_currArg[0] )
+	{
+	case L'/':
+		if ( p_currArg[1] == L'-' )
+		{
+			negative = 1;
+			p_currArg++;
+		}
+		else if ( p_currArg[1] == L'+' )
+			p_currArg++;
 
-         switch ( currArg[1] )      // unique letter switch testing
-         {
-            case 0:
-               err.MsgWrite(20012, L"Missing switch option");
-               break;
-            case L'?':
-               Usage(true);
-               rc = 1;
-               break;
-            case L'f':
-            case L'd':
-               if ( negative )
-               {
-                  err.MsgWrite(30011, L"Can't negate %c option", currArg[1]);
-                  rc = 4;
-               }
-               else
-                  rc = ParmParseObjectAction(currArg + 1);
-               break;
-            case L'l':
-               if ( negative )
-                  if ( currArg[2] )
-                  {
-                     err.MsgWrite(30113, L"Trying to negate log with arguments '%s'", currArg - 1);
-                     rc = 1;
-                  }
-                  else
-                     gLogName = NULL;
-               else
-                  if ( currArg[2] )
-                     gLogName = (WCHAR *)currArg + 2;
-                  else
-                     gLogName = L"NetDitto.log";
-               break;
-            default:
-               if ( isdigit(currArg[1]) )
-                  gOptions.maxLevel = _wtoi(currArg + 1);
-               else if ( !wcscmp(currArg+1, L"a") )
-                  globalChangeMask = OPT_GlobalAttrArch;
-               else if ( !wcsncmp(currArg+1, L"as=", 3) )
-                  AttrSignificanceSet(currArg+4);
-               else if ( !wcscmp(currArg+1, L"backup") )
-                  globalChangeMask = OPT_GlobalBackup;
-               else if ( !wcscmp(currArg+1, L"backupforce") )
-                  globalChangeMask = OPT_GlobalBackup | OPT_GlobalBackupForce;
-               else if ( !wcscmp(currArg+1, L"h") )
-                  globalChangeMask = OPT_GlobalHidden;
-               else if ( !wcscmp(currArg+1, L"m") )
-                  globalChangeMask = OPT_GlobalMakeTgt;
-               else if ( !wcscmp(currArg+1, L"n") )
-                  globalChangeMask = OPT_GlobalNewer;
-               else if ( !wcscmp(currArg+1, L"namecase") )
-                  globalChangeMask = OPT_GlobalNameCase;
-               else if ( !wcscmp(currArg+1, L"o") )
-                  globalChangeMask = OPT_GlobalOptimize;
-               else if ( !wcscmp(currArg+1, L"pa") )
-                  globalChangeMask = OPT_GlobalPermAttr;
-               else if ( !wcscmp(currArg+1, L"pd") )
-                  globalChangeMask = OPT_GlobalDirPrec;
-               else if ( !wcscmp(currArg+1, L"r") )
-                  globalChangeMask = OPT_GlobalReadOnly;
-               else if ( !wcscmp(currArg+1, L"sd") )
-                  globalChangeMask = OPT_GlobalDispDetail;
-               else if ( !wcscmp(currArg+1, L"sm") )
-                  globalChangeMask = OPT_GlobalDispMatches;
-               else if ( !wcscmp(currArg+1, L"silent") )
-                  globalChangeMask = OPT_GlobalSilent;
-               else if ( !wcscmp(currArg+1, L"t") )
-                  globalChangeMask = OPT_GlobalDirTime;
-               else if ( !wcscmp(currArg+1, L"u") )
-                  globalChangeMask = OPT_GlobalChange;
-               else if ( !wcscmp(currArg+1, L"xor") )
-                  globalChangeMask = OPT_GlobalCopyXOR;
-               else if ( !wcscmp(currArg+1, L"x") )
-               {
-                  if ( negative )
-                     *state &= ~PS_EXCLUDE;
-                  else
-                     *state |= PS_EXCLUDE;
-               }
-               else if ( !wcsncmp(currArg+1, L"sf=", 3) )
-               {
-                  gOptions.spaceMinFree = (DWORD)TextToInt64(currArg+3, 0,
-                      (__int64)500*1024*1024*1024, &errMsg);
-                  if ( errMsg )
-                  {
-                     err.MsgWrite(ErrE, L"%s - %s", currArg, errMsg);
-                     rc = 1;
-                  }
-               }
-               else if ( !wcsncmp(currArg+1, L"si", 2) )
-                  if ( !isdigit(currArg[3]) )
-                  {
-                     err.MsgWrite(20003, L"Space check interval secs (si) must be numeric");
-                     rc = 1;
-                  }
-                  else
-                     gOptions.spaceInterval = 1000l * _wtoi(currArg+3);
-               else
-               {
-                  err.MsgWrite(20001, L"Invalid switch '%s'", currArg - negative);
-                  rc = 1;
-               }
-         }
-         if ( globalChangeMask )
-            if ( negative )
-               gOptions.global &= ~globalChangeMask;  // turn off option bit
-            else
-               gOptions.global |= globalChangeMask;   // turn on option bit
-         break;
-      default:
-         if ( !*gSource.Path() )
-         {
-            if ( wcscmp(currArg, L"-") )
-               rc = gSource.SetNormalizedRootPath(currArg);
-            else
-               gSource.SetRootPath(L"-");
-         }
-         else if ( !gTarget.Path()[0] )
-         {
-			 rc = gTarget.SetNormalizedRootPath(currArg);
-            // if source is null, we copy the target options to it because some
-            // behavior is dependant on this being filled in.
-            if ( !wcscmp(gSource.Path(), L"-") )
-            {
-//?            gSource = gTarget;
-               gSource.SetRootPath(L"-");
-            }
-         }
-         else
-         {
-            if ( *state & PS_EXCLUDE )
-               ListAdd(&gOptions.exclude, currArg);
-            else
-               ListAdd(&gOptions.include, currArg);
-         }
-         if ( rc )
-            err.SysMsgWrite(20029, rc, L"Invalid path '%s', ", currArg);
-   }
-   return rc;
+		switch ( p_currArg[1] )      // unique letter switch testing
+		{
+		case 0:
+			err.MsgWrite(20012, L"Missing switch option");
+			break;
+		case L'?':
+			Usage(true);
+			rc = 1;
+			break;
+		case L'f':
+		case L'd':
+			if ( negative )
+			{
+				err.MsgWrite(30011, L"Can't negate %c option", p_currArg[1]);
+				rc = 4;
+			}
+			else
+				rc = ParmParseObjectAction(p_currArg + 1);
+			break;
+		case L'l':
+			if ( negative )
+				if ( p_currArg[2] )
+				{
+					err.MsgWrite(30113, L"Trying to negate log with arguments '%s'", p_currArg - 1);
+					rc = 1;
+				}
+				else
+					gLogName = NULL;
+			else
+				if ( p_currArg[2] )
+					gLogName = (WCHAR *)p_currArg + 2;
+				else
+					gLogName = L"NetDitto.log";
+			break;
+		default:
+			if (isdigit(p_currArg[1]))
+				gOptions.maxLevel = _wtoi(p_currArg + 1);
+			else if (!wcscmp(p_currArg + 1, L"a"))
+				globalChangeMask = OPT_GlobalAttrArch;
+			else if (!wcsncmp(p_currArg + 1, L"as=", 3))
+				AttrSignificanceSet(p_currArg + 4);
+			else if (!wcscmp(p_currArg + 1, L"backup"))
+				globalChangeMask = OPT_GlobalBackup;
+			else if (!wcscmp(p_currArg + 1, L"backupforce"))
+				globalChangeMask = OPT_GlobalBackup | OPT_GlobalBackupForce;
+			else if (!wcscmp(p_currArg + 1, L"h"))
+				globalChangeMask = OPT_GlobalHidden;
+			else if (!wcscmp(p_currArg + 1, L"m"))
+				globalChangeMask = OPT_GlobalMakeTgt;
+			else if (!wcscmp(p_currArg + 1, L"n"))
+				globalChangeMask = OPT_GlobalNewer;
+			else if (!wcscmp(p_currArg + 1, L"namecase"))
+				globalChangeMask = OPT_GlobalNameCase;
+			else if (!wcscmp(p_currArg + 1, L"o"))
+				globalChangeMask = OPT_GlobalOptimize;
+			else if (!wcscmp(p_currArg + 1, L"pa"))
+				globalChangeMask = OPT_GlobalPermAttr;
+			else if (!wcscmp(p_currArg + 1, L"pd"))
+				globalChangeMask = OPT_GlobalDirPrec;
+			else if (!wcscmp(p_currArg + 1, L"r"))
+				globalChangeMask = OPT_GlobalReadOnly;
+			else if (!wcscmp(p_currArg + 1, L"sd"))
+				globalChangeMask = OPT_GlobalDispDetail;
+			else if (!wcscmp(p_currArg + 1, L"sm"))
+				globalChangeMask = OPT_GlobalDispMatches;
+			else if (!wcscmp(p_currArg + 1, L"silent"))
+				globalChangeMask = OPT_GlobalSilent;
+			else if (!wcscmp(p_currArg + 1, L"t"))
+				globalChangeMask = OPT_GlobalDirTime;
+			else if (!wcscmp(p_currArg + 1, L"u"))
+				globalChangeMask = OPT_GlobalChange;
+			else if (!wcscmp(p_currArg + 1, L"xor"))
+				globalChangeMask = OPT_GlobalCopyXOR;
+			else if (!wcscmp(p_currArg + 1, L"x"))
+				*p_state = PSFilterExclude;
+			else if ( !wcscmp(p_currArg + 1, L"xd") )
+				*p_state = PSDirFilterExclude;
+			else if ( !wcsncmp(p_currArg+1, L"sf=", 3) )
+			{
+				gOptions.spaceMinFree = (DWORD)TextToInt64(p_currArg+3, 0,
+										(__int64)500*1024*1024*1024, &errMsg);
+				if ( errMsg )
+				{
+					err.MsgWrite(ErrE, L"%s - %s", p_currArg, errMsg);
+					rc = 1;
+				}
+			}
+			else if ( !wcsncmp(p_currArg+1, L"si", 2) )
+				if ( !isdigit(p_currArg[3]) )
+				{
+					err.MsgWrite(20003, L"Space check interval secs (si) must be numeric");
+					rc = 1;
+				}
+				else
+					gOptions.spaceInterval = 1000l * _wtoi(p_currArg+3);
+			else
+			{
+				err.MsgWrite(20001, L"Invalid switch '%s'", p_currArg - negative);
+				rc = 1;
+			}
+		}
+		if ( globalChangeMask )
+			if ( negative )
+				gOptions.global &= ~globalChangeMask;  // turn off option bit
+			else
+				gOptions.global |= globalChangeMask;   // turn on option bit
+		break;
+	default:
+		// unswitched parms (strings without a /prefix) are source, target paths and then filter wildcards
+		switch (*p_state)
+		{
+		case PSNone:
+			if ( wcscmp(p_currArg, L"-") )
+				rc = gSource.SetNormalizedRootPath(p_currArg);
+			else
+				gSource.SetRootPath(L"-");
+			*p_state = PSSourceSet;
+			break;
+		case PSSourceSet:
+				rc = gTarget.SetNormalizedRootPath(p_currArg);
+				*p_state = PSTargetSet;
+				break;
+		case PSTargetSet:		// strings are implicitly include filters after paths and no switch
+		case PSFilterInclude:
+			ListAdd(&gOptions.exclude, p_currArg);
+			break;
+		case PSFilterExclude:
+			ListAdd(&gOptions.include, p_currArg);
+			break;
+		case PSDirFilterExclude:
+			ListAdd(&gOptions.direxclude, p_currArg);
+			break;
+		default:
+			err.MsgWrite(20029, L"Invalid filter state=%d at %s", *p_state, p_currArg);
+		}
+		if ( rc )
+			err.SysMsgWrite(20029, rc, L"Invalid path '%s', ", p_currArg);
+	}
+	return rc;
 }
 
 
@@ -560,11 +559,11 @@ DWORD _stdcall                            // ret-0=success
 // Parses/processes a single parm argument string from the command line
 //-----------------------------------------------------------------------------
 static
-DWORD _stdcall                            // ret-0=success
-   ParmFileIter(
-      WCHAR   const        * fileName    ,// in -filename containing options
-      USHORT               * state        // i/o-state flags
-   )
+DWORD _stdcall								 // ret-0=success
+	ParmFileIter(
+		WCHAR const			  * fileName	,// in -filename containing options
+		ParmState			  * p_state		 // i/o-state for interpreting includes/excludes
+	)
 {
    DWORD                     rc,
                              rcMax = 0;
@@ -594,7 +593,7 @@ DWORD _stdcall                            // ret-0=success
 
          if ( *c )
          {
-            rc = ParmArgProcess(c, state);
+            rc = ParmArgProcess(c, p_state);
             rcMax = max(rc, rcMax);
          }
       }
@@ -617,8 +616,9 @@ DWORD _stdcall                            // ret-0=success
 	DWORD					rc,
 							rcMax = 0;
 	USHORT                  state = 0;
+	ParmState				parmstate = PSNone;		// state for whether term is a path, file include, file exclude, or dir exclude filter
 
-	memset(&gOptions, '\0', sizeof gOptions); // initialize all options
+	memset(&gOptions, '\0', sizeof gOptions);		// initialize all options with defaults
 	gOptions.file.contents  = OPT_PropActionAll;
 	gOptions.file.attr      = OPT_PropActionAll;
 	gOptions.file.perms     = OPT_PropActionNone;
@@ -651,9 +651,9 @@ DWORD _stdcall                            // ret-0=success
 		while ( currArg = *++argv )
 		{
 			if ( currArg[0] == L'@' )
-				rc = ParmFileIter(currArg+1, &state);
+				rc = ParmFileIter(currArg+1, &parmstate);
 			else
-				rc = ParmArgProcess(currArg, &state);
+				rc = ParmArgProcess(currArg, &parmstate);
 			rcMax = max(rcMax, rc);
 		}
 
@@ -669,134 +669,6 @@ DWORD _stdcall                            // ret-0=success
 	}
 	return rcMax;
 }
-
-
-//-----------------------------------------------------------------------------
-// Creates an initial DirEntry for an existing directory
-//-----------------------------------------------------------------------------
-static
-DirEntry * _stdcall
-   DirEntryCreate(
-      WIN32_FIND_DATAW const* findBuffer   // in -FindFile buffer
-   )
-{
-   DirEntry                * dirEntry;
-   size_t                    dirEntryLen;
-
-   dirEntryLen = sizeof *dirEntry
-      - sizeof(findBuffer->cFileName)
-      + WcsByteLen(findBuffer->cFileName);
-
-   dirEntry = (DirEntry *)malloc(dirEntryLen);
-   memset(dirEntry, 0, dirEntryLen);
-   wcscpy(dirEntry->cFileName, findBuffer->cFileName);
-   dirEntry->attrFile = findBuffer->dwFileAttributes;
-
-   return dirEntry;
-}
-
-
-//-----------------------------------------------------------------------------
-// Fixes the format of and tests for the existance of the argument directory
-//-----------------------------------------------------------------------------
-DWORD _stdcall                            // ret-0=not exist, 1=exists, 2=error, 3=file
-   PathDirExists(
-      WCHAR                * apipath     ,// i/o-path to fixup and test
-      DirEntry            ** dirEntry     // out-NULL if not found
-   )
-{
-   DWORD                     rc;
-   size_t                    len;
-   bool                      bUNC = false;
-   WCHAR                   * p;
-   HANDLE                    hFind;
-   WIN32_FIND_DATA           findBuffer;  // result of Find*File API
-
-   if ( !wcsncmp(apipath+4, L"UNC\\", 4) )     // if UNC form, must append * to path
-   {
-       // \\?\UNC\server\share form.  server starts at apipath+8
-       bUNC = true;
-       for ( p = apipath+8, len = 2;  *p;  p++ )
-          if ( *p == L'\\' )
-             len++;
-      if ( p[-1] == L'\\' )  // if UNC with just share suffixed with backslash
-         if ( len == 4 )
-         {
-            len = p - apipath - 1;
-            wcscpy(p, L"*");
-         }
-         else
-            len = p - apipath;
-      else
-      {
-         if ( len == 3 )        // if UNC with just share without trailing backslash
-            wcscpy(p, L"\\*");
-         len = p - apipath;
-      }
-   }
-   else
-   {
-      len = wcslen(apipath);
-      if ( apipath[len-1] == L'\\' ) // fix path format by removing any trailing backslash
-         len--;
-   }
-
-   hFind = FindFirstFile(apipath, &findBuffer);
-   if ( hFind == INVALID_HANDLE_VALUE )
-      rc = GetLastError();
-   else
-   {
-      rc = 0;
-      FindClose(hFind);
-   }
-   apipath[len] = L'\0';  // remove any appended chars
-
-   switch ( rc )
-   {
-      case ERROR_NO_MORE_FILES:        // root with no dirs/files, not even . or ..
-         findBuffer.cFileName[0] = L'\0';
-      case 0:
-         if ( findBuffer.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY )
-         {
-            *dirEntry = DirEntryCreate(&findBuffer);
-            rc = 1;
-         }
-         else
-         {
-            *dirEntry = NULL;
-            rc = 3;
-         }
-         break;
-      case ERROR_FILE_NOT_FOUND:
-      case ERROR_PATH_NOT_FOUND:
-         *dirEntry = NULL;
-         // check to see if root directory or root to UNC path because this
-         // will fail without a terminating \* so we need to check it again
-         if ( bUNC  ||  (len == 2  &&  apipath[5] == L':') )
-         {
-            wcscpy(apipath+len, L"\\*");
-            hFind = FindFirstFile(apipath, &findBuffer);
-            apipath[len] = L'\0';
-            if ( hFind == INVALID_HANDLE_VALUE )
-               rc = 0;
-            else
-            {
-               FindClose(hFind);
-               findBuffer.cFileName[0] = L'\0';
-               findBuffer.dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
-               *dirEntry = DirEntryCreate(&findBuffer);
-               rc = 1;
-            }
-         }
-         else
-            rc = 0;
-         break;
-      default:
-         err.SysMsgWrite(50011, rc, L"FindFirstFile(%s)=%ld, ", apipath, rc);
-   }
-   return rc;
-}
-
 
 
 //-----------------------------------------------------------------------------

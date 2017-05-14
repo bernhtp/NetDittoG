@@ -21,7 +21,6 @@ struct DirEntry					// directory entry summary
 	}
 };
 
-DirEntry * _stdcall DirEntryCreate(WIN32_FIND_DATAW const * p_find);
 
 /// DirEntryMax accommodates the largest possible size DirEntry
 struct DirEntryMax

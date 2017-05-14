@@ -388,6 +388,8 @@ DWORD DirList::ProcessCurrentPath()
 						  * currentry;
 	bool					bSorted = true;
 
+	m_stats->dirFound++;
+	m_stats->dirFiltered++;						// dirs currently always filtered
 	wcscpy(m_path + pathlen, L"\\*");			// suffix path with \* for FindFileFist
 	// iterate through directory entries and add them as DirEntry objects
 	for ( bSuccess = ((hDir = FindFirstFile(m_apipath, &find)) != INVALID_HANDLE_VALUE),
@@ -399,7 +401,10 @@ DWORD DirList::ProcessCurrentPath()
 		  && (!wcscmp(find.cFileName, L".") || !wcscmp(find.cFileName, L"..")) )
 			continue;							// ignore directory names '.' and '..'
 		if ( find.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY )
-			m_stats->dirFound++;
+		{
+			if ( DirFilterReject(find.cFileName) )
+				continue;						// skip any directory matching any DirExclude spec
+		}
 		else
 		{
 			m_stats->fileFound.count++;
@@ -407,9 +412,8 @@ DWORD DirList::ProcessCurrentPath()
 		}
 		if ( FilterReject(find.cFileName, gOptions.include, gOptions.exclude) )
 			continue;
-		if ( find.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY )
-			m_stats->dirFiltered++;
-		else
+
+		if ( !(find.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) )
 		{
 			m_stats->fileFiltered.count++;
 			m_stats->fileFiltered.bytes += INT64R(find.nFileSizeLow, find.nFileSizeHigh);

@@ -21,7 +21,7 @@
 #include "netditto.hpp"
 
 // globals
-Options                     gOptions;   // global options
+Options                     gOptions;							// global options
 DirList						gSource(&gOptions.stats.source);	// global source state
 DirList						gTarget(&gOptions.stats.target);	// global target state
 
@@ -31,7 +31,7 @@ int
       WCHAR const         ** argv         // in -argument values
    )
 {
-	WCHAR const *x[] = { L"NetDittoG", L"-", L"\\temp\\xxx", L"/-u", L"/m", L"/df-r", L"/l\\temp\\x.log", NULL };
+	WCHAR const *x[] = { L"NetDittoG", L"\\temp\\x", L"\\temp\\xxx", L"/u", L"/m", L"/df=*", L"/l\\temp\\x.log", L"/xd", L"debug", NULL };
 	DWORD                     rc;
 	DirEntry                * srcEntry,
 							* tgtEntry;

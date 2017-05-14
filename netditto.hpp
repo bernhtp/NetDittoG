@@ -87,7 +87,7 @@ struct Property                          // Actions for dir/file properties
 #define OPT_GlobalBackupForce 0x00008000 // Use backup semantics/APIs and for update
 #define OPT_GlobalNameCase   0x00010000  // make name case significant when different
 #define OPT_GlobalReadComp   0x00020000  // read source compression type for target repl
-#define OPT_DirFilter        0x00040000  // directory include/exclude filter set
+#define OPT_DirFilter        0x00040000  // directory exclude filter set
 
 #define FLAG_Shutdown        (1 << 0)    // Shutdown program
 #define FLAG_SameVolume      (1 << 1)    // source and target on same volume name
@@ -103,6 +103,7 @@ struct Options                          // main object of system containing proc
 	__int64           spaceMinFree;		// space free minimum
 	FileList        * include;			// list of filespecs to include
 	FileList        * exclude;			// list of filespecs to exclude
+	FileList		* direxclude;		// list of wildcards to exclude directories
 	BYTE            * copyBuffer;		// copy buffer - file/dir contents/ACLs
 	long              statsInterval;	// stats display interval (mSec) for MT version
 	long              spaceInterval;	// space free check interval (mSec) for MT version
@@ -212,6 +213,8 @@ short _stdcall                            // ret-0=accept 1=notInclude 2=Exclude
       FileList const       * exclude      // in -exclude list
    );
 
+bool DirFilterReject(wchar_t const * p_name);	// returns true if p_name matches any of the wildcards in the dir exclude list
+
 void _stdcall
    LogOpen(void);
 
@@ -259,12 +262,6 @@ void _stdcall
 DWORD _stdcall                            // ret-0=success
    ParmParse(
        WCHAR const         ** argv        // in -argument values
-   );
-
-DWORD _stdcall                            // ret-0=not exist, 1=exists, 2=error
-   PathDirExists(
-      WCHAR                * path        ,// i/o-path to fixup and test
-      DirEntry            ** dirEntry     // out-NULL if not found
    );
 
 void _stdcall                             // ret-0=success
