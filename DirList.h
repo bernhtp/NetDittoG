@@ -185,7 +185,7 @@ public:
 						{ return m_volinfo.fsFlags; }
 	bool			IsUNC() const { return m_isUNC; }		// is the path a UNC?
 	DWORD			SetNormalizedRootPath(wchar_t const * p_path);	// Tests and Normalizes p_path before setting m_path.  Returns 0 or rc
-	int				PathAppend(wchar_t const * p_dir);		// append a dir element to m_path and return the result length
+	size_t			PathAppend(wchar_t const * p_dir);		// append a dir element to m_path and return the result length
 	wchar_t const * Path() const { return m_path; }			// returns the path string 
 	PathResult		PathExists(DirEntry ** p_direnty);		// Tests existance of m_path.  ret-0=not exist, 1=exists, 2=error, 3=file
 	size_t			PathLength() const { return m_pathlen; }// returns current path length (not including apipath prefix)

@@ -27,17 +27,16 @@ DirList						gTarget(&gOptions.stats.target);	// global target state
 
 int
    wmain(
-      int                    argn        ,// in -number of arguments
-      WCHAR const         ** argv         // in -argument values
+      int					argn        ,// in -number of arguments
+      wchar_t const		  * argv[]       // in -argument values
    )
 {
-	WCHAR const *x[] = { L"NetDittoG", L"\\temp\\x", L"\\temp\\xxx", L"/u", L"/m", L"/df=*", L"/l\\temp\\x.log", L"/xd", L"debug", NULL };
-	DWORD                     rc;
-	DirEntry                * srcEntry,
-							* tgtEntry;
-	time_t                    t;
+	DWORD					rc;
+	DirEntry			  * srcEntry,
+						  * tgtEntry;
+	time_t					t;
 
-	if ( rc = ParmParse(x) )
+	if ( rc = ParmParse(argv) )
 		return rc;
 	if ( gLogName )
 		err.LogOpen(gLogName, 0, -1);
@@ -101,8 +100,8 @@ int
 void _stdcall OptionsConstruct()
 {
 	gOptions.findAttr = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_READONLY
-					| FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_DIRECTORY
-					| FILE_ATTRIBUTE_ARCHIVE;
+					  | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_DIRECTORY
+					  | FILE_ATTRIBUTE_ARCHIVE;
 
 	gOptions.copyBuffer = (PBYTE)VirtualAlloc(NULL,
 											gOptions.sizeBuffer = COPYBUFFSIZE,

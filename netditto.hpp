@@ -47,8 +47,8 @@ struct LogActions
 
 struct FileList                          // type for file lists used for include and exclude
 {                                        // next file in list or NULL for end
-   struct FileList         * next;
-   WCHAR                     name[MAX_PATH];
+	FileList			  * next;
+	wchar_t					name[1];	// a variable length string for the wildcard filter
 };
 
 typedef byte                 Actions;    // actions that can be taken (bitmask)
@@ -60,9 +60,10 @@ struct Property                          // Actions for dir/file properties
    Actions                   perms;      // file/dir permissions
 };
 
-#define GETATTRIB ( FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE  \
-                  | FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_READONLY \
-                  | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_DIRECTORY )
+DWORD static const GETATTRIB =	FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE
+							  | FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_READONLY
+							  | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_DIRECTORY;
+
 #define OPT_PropActionMake   0x01        // create object
 #define OPT_PropActionUpdate 0x02        // replace object
 #define OPT_PropActionRemove 0x04        // delete object
@@ -164,23 +165,6 @@ void _stdcall
    DisplayTime(
    );
 
-/*
-void _cdecl
-   ErrMsg(
-      short                  n           ,// in -error message level/number
-      const char           * msg         ,// in -error message to log
-      ...                                 // in -vsprintf args to msg pattern
-   );
-
-void _stdcall
-   ErrMsgFile(
-      short                  n           ,// in -error message level/number or 0
-      DWORD                  rc          ,// in -Dos API return code
-      const char           * api         ,// in -API name
-      const char           * msg          // in -target name
-   );
-*/
-
 DWORD _stdcall
    FileContentsCompare(
    );
@@ -201,10 +185,10 @@ DWORD _stdcall
       DirEntry const       * tgtEntry     // in -target directory entry
    );
 
-WORD _stdcall
-   FileNoSource(
-      DirEntry const       * tgtEntry     // in -current source entry processed
-   );
+//WORD _stdcall
+//   FileNoSource(
+//      DirEntry const       * tgtEntry     // in -current source entry processed
+//   );
 
 short _stdcall                            // ret-0=accept 1=notInclude 2=Exclude
    FilterReject(
@@ -214,9 +198,6 @@ short _stdcall                            // ret-0=accept 1=notInclude 2=Exclude
    );
 
 bool DirFilterReject(wchar_t const * p_name);	// returns true if p_name matches any of the wildcards in the dir exclude list
-
-void _stdcall
-   LogOpen(void);
 
 DWORD _stdcall                            // ret-0=success
    MatchEntries(
@@ -265,12 +246,10 @@ DWORD _stdcall                            // ret-0=success
    );
 
 void _stdcall                             // ret-0=success
-   OptionsConstruct(
-   );
+   OptionsConstruct();
 
 DWORD _stdcall                            // ret-number of warnings/fixes
-   OptionsResolve(
-   );
+   OptionsResolve();
 
 short _stdcall                            // ret-0=perms equal
    PermCreate(
@@ -292,12 +271,6 @@ short _stdcall                            // ret-0=perms equal
    PermReplicate(
       BOOL                   isDir       ,// in -0=file, 1=dir
       LogAction            * logAction    // out-log action taken
-   );
-
-int                                        // ret-0=volume components equal
-   VolCompare(
-      WCHAR const          * path1        ,// in -path 1
-      WCHAR const          * path2         // in -path 2
    );
 
 BOOL
@@ -335,10 +308,10 @@ class TErrorScreen : public TError
 {
 public:
                         TErrorScreen(
-      int                    displevel = 0,// in -mimimum severity level to display
-      int                    loglevel = 0 ,// in -mimimum severity level to log
-      WCHAR   const        * filename = L"",// in -file name of log (NULL if none)
-      int                    logmode = 0  )// in -0=replace, 1=append
+      int                    displevel = 0	,// in -mimimum severity level to display
+      int                    loglevel = 0	,// in -mimimum severity level to log
+      WCHAR   const        * filename = L""	,// in -file name of log (NULL if none)
+      int                    logmode = 0  )	 // in -0=replace, 1=append
                         : TError(displevel, loglevel, filename, logmode) { };
 
    virtual void __stdcall StrWrite(int level, WCHAR const * str) const;

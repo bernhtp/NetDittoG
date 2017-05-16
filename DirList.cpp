@@ -40,7 +40,7 @@ ServerShareCopy(
 	return (int)(c - p_uncpath);
 }
 
-
+/*?
 /// Creates root DirEntry dir
 DirEntry * __stdcall DirEntryCreate(WIN32_FIND_DATAW const * p_find)
 {
@@ -57,6 +57,7 @@ DirEntry * __stdcall DirEntryCreate(WIN32_FIND_DATAW const * p_find)
 
 	return direntry;
 }
+*/
 
 ///? Test apparent compiler bug in not accepting array literal initializer
 class Path
@@ -110,7 +111,7 @@ void DirList::IndexGrow()
 
 
 /// Appends new name to end of m_path
-int DirList::PathAppend(wchar_t const * p_name)
+size_t DirList::PathAppend(wchar_t const * p_name)
 {
 	m_path[m_pathlen] = L'\\';
 	wcscpy_s(m_path + m_pathlen + 1, MAX_PATHX - m_pathlen - 3, p_name);
@@ -383,7 +384,7 @@ DWORD DirList::ProcessCurrentPath()
 	WIN32_FIND_DATA			find;			// result of Find*File API
 	DWORD					rc = 0;
 	BOOL					bSuccess;
-	int						pathlen = m_pathlen;
+	size_t					pathlen = m_pathlen;
 	DirEntry			  * preventry = NULL,
 						  * currentry;
 	bool					bSorted = true;

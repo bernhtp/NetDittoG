@@ -18,7 +18,7 @@
 
 #include "netditto.hpp"
 
-enum ParmState {PSInvalid, PSNone, PSSourceSet, PSTargetSet, PSFilterInclude, PSFilterExclude, PSDirFilterExclude};
+enum ParmState {PSInvalid, PSNone, PSSourceSet, PSTargetSet, PSFIleFilterInclude, PSFileFilterExclude, PSDirFilterExclude};
 
 //-----------------------------------------------------------------------------
 // Adds the argument string to the end of the argument list and sets the head
@@ -26,22 +26,22 @@ enum ParmState {PSInvalid, PSNone, PSSourceSet, PSTargetSet, PSFilterInclude, PS
 //-----------------------------------------------------------------------------
 void _stdcall
    ListAdd(
-      FileList            ** top         ,// i/o-head/top of list
-      WCHAR const          * str          // in -string to add to list
+      FileList            ** p_top         ,// i/o-head/top of list
+      wchar_t const        * p_str          // in -string to add to list
    )
 {
    FileList                * curr,
                            * prev = NULL;
 
-   for ( curr = *top;  curr;  curr = curr->next )  // go to end of list
+   for ( curr = *p_top;  curr;  curr = curr->next )  // go to end of list
       prev = curr;
-   curr = (FileList *)malloc(sizeof *curr - sizeof curr->name + WcsByteLen(str));
-   wcscpy(curr->name, str);
+   curr = (FileList *)malloc(sizeof *curr + WcsByteLen(p_str));
+   wcscpy(curr->name, p_str);
    curr->next = NULL;
    if ( prev )
       prev->next = curr;
    else
-      *top = curr;
+      *p_top = curr;
 }
 
 // This parses the command line attribute significance bitmap.  This represent
@@ -487,9 +487,23 @@ DWORD _stdcall							 // ret-0=success
 			else if (!wcscmp(p_currArg + 1, L"xor"))
 				globalChangeMask = OPT_GlobalCopyXOR;
 			else if (!wcscmp(p_currArg + 1, L"x"))
-				*p_state = PSFilterExclude;
+			{
+				if ( *p_state < PSTargetSet )
+				{
+					rc = 2;
+					err.MsgWrite(3093, L"Filter option (/x or /d) given before target specified");
+				}
+				*p_state = PSFileFilterExclude;
+			}
 			else if ( !wcscmp(p_currArg + 1, L"xd") )
+			{
+				if ( *p_state < PSTargetSet )
+				{
+					rc = 2;
+					err.MsgWrite(3094, L"Filter option (/x or /d) given before target specified");
+				}
 				*p_state = PSDirFilterExclude;
+			}
 			else if ( !wcsncmp(p_currArg+1, L"sf=", 3) )
 			{
 				gOptions.spaceMinFree = (DWORD)TextToInt64(p_currArg+3, 0,
@@ -536,11 +550,11 @@ DWORD _stdcall							 // ret-0=success
 				*p_state = PSTargetSet;
 				break;
 		case PSTargetSet:		// strings are implicitly include filters after paths and no switch
-		case PSFilterInclude:
-			ListAdd(&gOptions.exclude, p_currArg);
-			break;
-		case PSFilterExclude:
+		case PSFIleFilterInclude:
 			ListAdd(&gOptions.include, p_currArg);
+			break;
+		case PSFileFilterExclude:
+			ListAdd(&gOptions.exclude, p_currArg);
 			break;
 		case PSDirFilterExclude:
 			ListAdd(&gOptions.direxclude, p_currArg);
