@@ -66,9 +66,6 @@
     <ClCompile Include="TList.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="tsync.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="unsecure.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -99,9 +96,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="security.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="tsync.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ustring.hpp">

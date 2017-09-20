@@ -36,7 +36,7 @@ static void _cdecl
    StatsDisplayThread()
 {
    DWORD                     rc;
-   short                     done = 0;
+   bool						 done = false;
 
    while ( !done )
    {
@@ -44,7 +44,7 @@ static void _cdecl
       {
          case WAIT_OBJECT_0:
          case WAIT_ABANDONED:
-            done = 1;
+            done = true;
             break;
          case WAIT_TIMEOUT:
             break;
@@ -85,7 +85,7 @@ short _stdcall
 
 //-----------------------------------------------------------------------------
 // Terminates the statistics display thread by clearing its RAM semaphore and
-// then waiting until it is clear again to let the thread finish processing
+// then wait until it is clear again to let the thread finish processing
 // before returning to the caller.
 //-----------------------------------------------------------------------------
 void _stdcall
@@ -102,7 +102,7 @@ void _stdcall
 static void _cdecl
    SpaceCheckThread()
 {
-   short                     done = 0;
+   bool                      done = false;
    __int64                   spaceFree;
    WCHAR                     path[_MAX_PATH];
    DWORD                     rc,
@@ -134,7 +134,7 @@ static void _cdecl
       {
          case WAIT_OBJECT_0:
          case WAIT_ABANDONED:
-            done = 1;
+            done = true;
             break;
          case WAIT_TIMEOUT:
             break;
@@ -177,8 +177,7 @@ void _stdcall
 // before returning to the caller.
 //-----------------------------------------------------------------------------
 void _stdcall
-   SpaceCheckTerminate(
-   )
+   SpaceCheckTerminate()
 {
    evSpace.Set();
    evSpace.WaitSingle(gOptions.spaceInterval);

@@ -158,7 +158,6 @@
     <ClCompile Include="security.cpp" />
     <ClCompile Include="textint.cpp" />
     <ClCompile Include="TList.cpp" />
-    <ClCompile Include="tsync.cpp" />
     <ClCompile Include="unsecure.cpp" />
     <ClCompile Include="ustring.cpp" />
     <ClCompile Include="viosupp.cpp" />
@@ -172,7 +171,6 @@
     <ClInclude Include="netditto.hpp" />
     <ClInclude Include="security.hpp" />
     <ClInclude Include="TList.h" />
-    <ClInclude Include="tsync.hpp" />
     <ClInclude Include="ustring.hpp" />
     <ClInclude Include="viosupp.hpp" />
     <ClInclude Include="wildmatch.hpp" />

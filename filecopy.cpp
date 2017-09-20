@@ -62,7 +62,7 @@ static DWORD _stdcall
          err.SysMsgWrite(30103, rc, L"WriteFile(%ld,%ld)=%ld, ", nSrc, nTgt, rc);
          return rc;
       }
-      gOptions.bWritten += nTgt;
+	  gOptions.bWritten += nTgt;
       if ( nSrc < gOptions.sizeBuffer )   // check EOF again to avoid unnecessary read
          break;
    }
@@ -73,6 +73,47 @@ static DWORD _stdcall
    return rc;
 }
 
+
+struct CopyfileContext
+{
+	int					nmessage;
+	HRESULT				hr;
+};
+
+static COPYFILE2_MESSAGE_ACTION CALLBACK CopyFile2Callback(
+	COPYFILE2_MESSAGE const	  * p_message,// in -message to process
+	void					  * p_context)// i/o-message context
+{
+	CopyfileContext			  * context = (CopyfileContext *)p_context;
+	context->nmessage++;
+	if ( p_message->Type == COPYFILE2_CALLBACK_CHUNK_FINISHED )	// update the bytes written stat when chunk complete
+		gOptions.bWritten += p_message->Info.ChunkFinished.uliChunkSize.QuadPart;
+	else if ( p_message->Type == COPYFILE2_CALLBACK_ERROR )
+	{
+		context->hr = p_message->Info.Error.hrFailure;
+		return COPYFILE2_PROGRESS_STOP;
+	}
+	return COPYFILE2_PROGRESS_CONTINUE;
+}
+
+
+/// Use CopyFile2 for the copy
+bool FileCopy2Contents(wchar_t const * p_ifile, wchar_t const * p_ofile)
+{
+	COPYFILE2_EXTENDED_PARAMETERS	cfp;
+	CopyfileContext					context;
+
+	memset(&context, 0, sizeof context);
+	cfp.dwSize = sizeof cfp;
+	cfp.dwCopyFlags = COPY_FILE_ALLOW_DECRYPTED_DESTINATION | COPY_FILE_NO_BUFFERING;
+	cfp.pfCancel = false;
+	cfp.pProgressRoutine = CopyFile2Callback;
+	cfp.pvCallbackContext = &context;
+	return CopyFile2(p_ifile, p_ofile, &cfp);
+}
+
+
+
 // Copies file contents
 DWORD _stdcall
    FileCopy(
@@ -80,14 +121,12 @@ DWORD _stdcall
       DirEntry const       * tgtEntry     // in -target directory entry
    )
 {
-   HANDLE                    hSrc,
-                             hTgt;
-   DWORD                     rc = 0,
-                             overlapped;
-   WCHAR                     temp[2][10];
+   HANDLE                    hSrc = INVALID_HANDLE_VALUE,
+                             hTgt = INVALID_HANDLE_VALUE;
+   DWORD                     rc = 0;
    BOOL                      compressChange;
 
-   // if file R/O and write R/O option, change to R/W
+   // if file attrib R/O and write R/O option, change to R/W
    if ( tgtEntry )
    {
       if ( tgtEntry->attrFile & (FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN) )
@@ -111,57 +150,6 @@ DWORD _stdcall
       }
    }
 
-   // if the file is big and the target not on a network, we'll do unbuffered
-   // overlapped I/O via I/O completion ports, so set the open attribute accordingly.
-   if ( srcEntry->cbFile >= LARGE_FILE_SIZE )
-   {
-      overlapped = FILE_FLAG_OVERLAPPED;
-      if ( gTarget.IsUNC() )
-         overlapped |= FILE_FLAG_NO_BUFFERING;
-   }
-   else
-      overlapped = 0;
-   hSrc = CreateFile(gSource.ApiPath(),
-                     GENERIC_READ,
-                     FILE_SHARE_READ | FILE_SHARE_WRITE,
-                     NULL, OPEN_EXISTING,
-                     FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN | FILE_FLAG_NO_BUFFERING | overlapped,
-                     0);
-   if ( hSrc == INVALID_HANDLE_VALUE )
-   {
-      rc = GetLastError();
-      if ( rc == ERROR_SHARING_VIOLATION )
-         err.MsgWrite(20101, L"Source file in use %s", gSource.Path() );
-      else
-         err.SysMsgWrite(40101, rc, L"OpenR(%s)=%ld, ", gSource.ApiPath(), rc);
-      return rc;
-   }
-
-   hTgt = CreateFile(gTarget.ApiPath(),
-                     GENERIC_WRITE | GENERIC_READ, FILE_SHARE_READ,
-                     NULL,
-                     CREATE_ALWAYS,
-                     FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN | overlapped,
-                     0);
-   if ( hTgt == INVALID_HANDLE_VALUE )
-   {
-      rc = GetLastError();
-      if ( rc == ERROR_SHARING_VIOLATION )
-         err.MsgWrite(20101, L"Target file in use %s", gTarget.Path() );
-      else
-      {
-         err.SysMsgWrite(40102, rc, L"OpenW(%s)=%ld (attr S/T=%s/%s,%x/%x), ",
-                                    gTarget.Path(),
-                                    rc,
-                                    srcEntry ? AttrStr(srcEntry->attrFile, temp[0]) : L"-",
-                                    tgtEntry ? AttrStr(tgtEntry->attrFile, temp[1]) : L"-",
-                                    srcEntry ? srcEntry->attrFile : 0,
-                                    tgtEntry ? tgtEntry->attrFile : 0);
-      }
-      CloseHandle(hSrc);
-      return rc;
-   }
-
    // if the source and target compression attribute is different and significant
    if ( tgtEntry )
       if ( (srcEntry->attrFile ^ tgtEntry->attrFile) & FILE_ATTRIBUTE_COMPRESSED & gOptions.attrSignif )
@@ -178,25 +166,10 @@ DWORD _stdcall
       CompressionSet(hSrc, hTgt, srcEntry->attrFile);
    }
 
-   if ( overlapped )
-      rc = FileCopyContentsOverlapped(hSrc, &hTgt);
-   else
-      rc = FileCopyContents(hSrc, hTgt);
+   rc = FileCopy2Contents(gSource.ApiPath(), gTarget.Path());
    if ( rc )
-      err.SysMsgWrite(104, rc, L"FileCopyContents%s(%s), ",
-                               (overlapped ? L"Overlapped" : L""),
+      err.SysMsgWrite(104, rc, L"FileCopy2(%s), ",
                                gTarget.Path());
-   CloseHandle(hSrc);
-
-   if ( !SetFileTime(hTgt, NULL, NULL, &srcEntry->ftimeLastWrite) )
-   {
-      rc = GetLastError();
-      err.SysMsgWrite(40110, rc, L"SetFileTime(%s,%02lX)=%ld ",
-                             gTarget.Path(), srcEntry->attrFile, rc);
-      rc = 0;
-   }
-
-   CloseHandle(hTgt);
 
    if ( gOptions.file.attr & OPT_PropActionUpdate )
       if ( !SetFileAttributes(gTarget.ApiPath(), srcEntry->attrFile) )

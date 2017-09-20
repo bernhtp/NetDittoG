@@ -10,8 +10,6 @@
   Description- Prototypes, macros, constants and headers for the NetDitto
                utility.
 
-  Updates
-  95/08/14 RED Add bi-directional queue structures and functions.
 
 ===============================================================================
 */
@@ -26,7 +24,6 @@
 
 #include "Err.hpp"
 #include "Common.hpp"
-#include "TSync.hpp"
 #include "WildMatch.hpp"
 #include "TList.h"
 

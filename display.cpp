@@ -439,7 +439,7 @@ void _stdcall
 
 	if ( tStart == 0 )
 	{
-		tLast = tStart = GetTickCount();
+		tLast = tStart = GetTickCount64();
 		VtxtDispStrN(eTitle, A_IBKGT, DIM(eTitle) - 1, 21, 1);
 		VtxtDispStrN(rTitle, A_IBKGT, DIM(rTitle) - 1, 21, 1 + DIM(eTitle));
 	}
