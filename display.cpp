@@ -165,7 +165,7 @@ short _stdcall
 		short					mode         // in -1=fullscreen, 0=text
 	)
 {
-   wchar_t static const			tMain[]   = L"NetDitto, (c) Tom Bernhardt 1991-2017",
+   wchar_t static const			tMain[]   = L"NetDitto - Tom Bernhardt 2017",
 								tChange[] = L" Differences ";
    wchar_t static const			fBox[]    = {0x250C,0x2510,0x2514,0x2518,0x2500,0x2502},
 								cFill[]   = {L' ' , A_IBKG   },

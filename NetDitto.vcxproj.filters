@@ -30,9 +30,6 @@
     <ClCompile Include="filecopy.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="filecopyasync.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="filter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

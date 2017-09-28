@@ -172,11 +172,6 @@ DWORD _stdcall
       DirEntry const       * tgtEntry     // in -target directory entry
    );
 DWORD _stdcall
-   FileCopyContentsOverlapped(
-      HANDLE                 hSrc        ,// in -source file handle
-      HANDLE               * hTgt         // i/o-target file handle
-   );
-DWORD _stdcall
    FileBackupCopy(
       DirEntry const       * srcEntry    ,// in -source directory entry
       DirEntry const       * tgtEntry     // in -target directory entry
@@ -285,20 +280,16 @@ BOOL
    );
 
 short _stdcall
-   StatsTimerCreate(
-   );
+   StatsTimerCreate();
 
 void _stdcall
-   StatsTimerTerminate(
-   );
+   StatsTimerTerminate();
 
 void _stdcall
-   SpaceCheckStart(
-   );
+   SpaceCheckStart();
 
 void _stdcall
-   SpaceCheckTerminate(
-   );
+   SpaceCheckTerminate();
 
 // Derivation of standard TError for full screen message handling
 class TErrorScreen : public TError

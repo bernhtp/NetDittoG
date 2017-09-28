@@ -97,27 +97,17 @@ public:
 	THandle(HANDLE p_handle = INVALID_HANDLE_VALUE)				// constructor does not create the handle
 		: m_handle(p_handle) {}
 	~THandle()													// destructor always closes open handle
-	{
-		Close();
-	}
+						{ Close(); }
 	operator HANDLE() const										// conversion operator to return the handle
-	{
-		return m_handle;
-	}
+						{ return m_handle; }
 	THandle	&		operator=(HANDLE p_handle)					// allow a HANDLE to be assigned, e.g., from a CreateFile call
-	{
-		m_handle = p_handle; return *this;
-	}
+						{ m_handle = p_handle; return *this; }
 	DWORD			WaitSingle(DWORD p_msec = INFINITE) const 	// waits on a single object handle
-	{
-		return WaitForSingleObject(m_handle, p_msec);
-	}
+						{ return WaitForSingleObject(m_handle, p_msec); }
 	DWORD 			WaitMultiple(BOOL p_bWaitAll, DWORD p_msec, HANDLE p_hFirst, ...) const;	// waits on multiple object handles; last one MUST be INVALID_HANDLE_VALUE
 	HANDLE			GetHandle() const { return m_handle; }		// returns handle value
 	void			Close()
-	{
-		if (m_handle != INVALID_HANDLE_VALUE) CloseHandle(m_handle);  m_handle = INVALID_HANDLE_VALUE;
-	}
+						{ if (m_handle != INVALID_HANDLE_VALUE) CloseHandle(m_handle);  m_handle = INVALID_HANDLE_VALUE; }
 };
 
 
@@ -137,10 +127,9 @@ class TEvent : public THandle
 {
 public:
 	TEvent(BOOL p_bSignal = false, BOOL p_bManual = false)		// creates an Event sync object, default auto-set
-		{ m_handle = CreateEvent(NULL, p_bManual, p_bSignal, NULL); }
+						{ m_handle = CreateEvent(NULL, p_bManual, p_bSignal, NULL); }
 	BOOL            Signal() const								// sets to signalled so that the wait releases
-		{ return SetEvent(m_handle); }
+						{ return SetEvent(m_handle); }
 	BOOL         	Set() const { return ResetEvent(m_handle); }	// reset to not signalled so that the wait blocks
-		
 };
 
