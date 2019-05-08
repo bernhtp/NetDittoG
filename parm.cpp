@@ -47,63 +47,67 @@ void _stdcall
 // This parses the command line attribute significance bitmap.  This represent
 // the attribute bits which are deemed significant in attribute difference
 // comparison (difference detection)
-void
-   AttrSignificanceSet(
-      WCHAR const          * opt           // in -options string to process
-   )
+	void
+	AttrSignificanceSet(
+		WCHAR const          * p_opt           // in -options string to process
+	)
 {
-   WCHAR const             * c;
-   BOOL                      add = 1;
-   DWORD                     bit;
+	WCHAR const             * c;
+	bool                      add = true;
+	DWORD                     bit;
 
-   for ( c = opt;  *c;  c++ )
-   {
-      bit = 0;
-      switch ( *c )
-      {
-         case L'+':
-            add = 1;
-            break;
-         case L'-':
-            add = 0;
-            break;
-         case L'a':
-            bit = FILE_ATTRIBUTE_ARCHIVE;
-            break;
-         case L'c':
-            bit = FILE_ATTRIBUTE_COMPRESSED;
-            break;
-         case L'h':
-            bit = FILE_ATTRIBUTE_HIDDEN;
-            break;
-         case L'r':
-            bit = FILE_ATTRIBUTE_READONLY;
-            break;
-         case L's':
-            bit = FILE_ATTRIBUTE_SYSTEM;
-            break;
-         case L't':
-            bit = FILE_ATTRIBUTE_TEMPORARY;
-            break;
-         default:
-            err.MsgWrite(ErrE, L"Invalid switch option for attribute significance='%c'", *c);
-      }
-      if ( bit )
-         if ( add )
-            gOptions.attrSignif |= bit;
-         else
-            gOptions.attrSignif &= ~bit;
-   }
+	for ( c = p_opt;  *c;  c++ )
+	{
+		bit = 0;
+		switch ( *c )
+		{
+		case L'+':
+			add = 1;
+			break;
+		case L'-':
+			add = 0;
+			break;
+		case L'a':
+			bit = FILE_ATTRIBUTE_ARCHIVE;
+			break;
+		case L'c':
+			bit = FILE_ATTRIBUTE_COMPRESSED;
+			break;
+		case L'h':
+			bit = FILE_ATTRIBUTE_HIDDEN;
+			break;
+		case L'r':
+			bit = FILE_ATTRIBUTE_READONLY;
+			break;
+		case L's':
+			bit = FILE_ATTRIBUTE_SYSTEM;
+			break;
+		case L't':
+			bit = FILE_ATTRIBUTE_TEMPORARY;
+			break;
+		default:
+			err.MsgWrite(ErrE, L"Invalid switch option for attribute significance='%c'", *c);
+		}
+		if ( bit )
+			if ( add )
+				gOptions.attrSignif |= bit;
+			else
+				gOptions.attrSignif &= ~bit;
+	}
 }
 
+/// The following state table and function processes the variable grammar
+/// in the option string beginning with d or f (directory or file) for the
+/// specification of what file system components/subcomponents to detect
+/// differences on and optionally replicare between source and target
 
-typedef enum {aNull,aSetT,aOrT,aSetC,aOrC,aSetO,aSetX,aSetA,aOrA,aErr} SAction;
-typedef struct
+enum SAction {aNull,aSetT,aOrT,aSetC,aOrC,aSetO,aSetX,aSetA,aOrA,aErr};
+struct StateTable
 {
-   SAction                   action;        // state action before transition
-   WCHAR                     arg;           // argument for action
-   WCHAR                     newState;      // new state transition
-}                               StateTable;
+	SAction                   action;        // state action before transition
+	WCHAR                     arg;           // argument for action
+	WCHAR                     newState;      // new state transition
+};
 #define ArgD  0x01                          // D=directory
 #define ArgF  0x02                          // F=file
 #define ArgC  0x01                          // C=contents
@@ -116,9 +120,9 @@ typedef struct
 #define ArgE  0x08
 
 static
-short _stdcall                            // ret-0=success
-   ParmParseObjectAction(
-      WCHAR   const        * str          // in -parameter string to parse
+short _stdcall								// ret-0=success
+	ParmParseObjectAction(
+		WCHAR const		  * str				// in -parameter string to parse
    )
 {
    StateTable static const   sTable[][6] = {
@@ -152,160 +156,159 @@ short _stdcall                            // ret-0=success
                 {aNull,   0,5},{aErr ,   0,6}                         },
 /*13   */{ {aErr ,   1,6},{aErr ,   1,6},{aErr ,   1,6},{aErr ,   1,6},
                 {aErr ,   1,6},{aErr ,   1,6}                         }};
-   StateTable const        * st;
-   WCHAR   const static    * msg[] = {
-       L"Syntax error",                                              // 0
-       L"Invalid character"                                        };// 1
-   WCHAR   const static      inputTrans[] = L"dfcap+-=mur*";
-   USHORT                    state = 0,  // current state
-                             nError = 0, // number of errors
-                             input;      // input index after translation
-   WCHAR   const           * s;
-   WCHAR   const           * t;          // temp pointer for strchr
-   struct
-   {
-      byte                   type;
-      byte                   component;
-      byte                   oper;
-      byte                   action;
-   }                      result = {0,0,0,0};
+	StateTable const       * st;
+	WCHAR const static	  * msg[] = {
+		L"Syntax error",                                              // 0
+		L"Invalid character"                                        };// 1
+	WCHAR const static		inputTrans[] = L"dfcap+-=mur*";
+	USHORT					state = 0,		// current state
+							nError = 0,		// number of errors
+							input;			// input index after translation
+	WCHAR   const         * s;
+	WCHAR   const         * t;				// temp pointer for strchr
+	struct
+	{
+		byte				type;
+		byte                component;
+		byte                oper;
+		byte                action;
+	}						result = {0,0,0,0};
 
-   for ( s = str;  state < 5;  s++ )
-   {
-      if ( t = wcschr(inputTrans, *s) )
-         input = (USHORT)(t - inputTrans);
-      else
-         if ( *s )
-            input = DIM(inputTrans);
-         else
-            input = DIM(inputTrans) - 1;
+	for ( s = str;  state < 5;  s++ )
+	{
+		if ( t = wcschr(inputTrans, *s) )
+			input = (USHORT)(t - inputTrans);
+		else
+			if ( *s )
+				input = DIM(inputTrans);
+			else
+				input = DIM(inputTrans) - 1;
 
-      st = &sTable[input][state];
-      switch ( st->action )
-      {
-         case aErr:
-            err.MsgWrite(30103, L"%s\n%*s %s [%d,%d]='%c'", str-1, s-str+9, L"^",
-                                msg[st->arg], state, input, *s);
-            break;
-         case aNull:         // no action
-            break;
-         case aSetT:         // set type of object: file, dir or both
-         case aOrT:
-            result.type |= st->arg;
-            break;
-         case aSetC:         // set component(s): contents, attr and/or perms
-         case aOrC:
-            result.component |= st->arg;
-            break;
-         case aSetX:         // set operator and missing components to all
-            result.oper |= st->arg;
-            result.component = ArgX;
-            break;
-         case aSetO:         // set operator: =+-
-            result.oper |= st->arg;
-            break;
-         case aSetA:         // set action masks for MUR*
-         case aOrA:
-            result.action |= st->arg;
-            break;
-         default:
-            err.MsgWrite(60101, L"Program error A=%d I=%c S=%d", st->action, *s, state);
-      }
-      state = st->newState;
-   }
-   if ( state != 5 )
-      err.MsgWrite(50112, L"Error(s) found [%d,%d]", state, input);
+		st = &sTable[input][state];
+		switch ( st->action )
+		{
+		case aErr:
+			err.MsgWrite(30103, L"%s\n%*s %s [%d,%d]='%c'", str-1, s-str+9, L"^",
+								msg[st->arg], state, input, *s);
+			break;
+		case aNull:         // no action
+			break;
+		case aSetT:         // set type of object: file, dir or both
+		case aOrT:
+			result.type |= st->arg;
+			break;
+		case aSetC:         // set component(s): contents, attr and/or perms
+		case aOrC:
+			result.component |= st->arg;
+			break;
+		case aSetX:         // set operator and missing components to all
+			result.oper |= st->arg;
+			result.component = ArgX;
+			break;
+		case aSetO:         // set operator: =+-
+			result.oper |= st->arg;
+			break;
+		case aSetA:         // set action masks for MUR*
+		case aOrA:
+			result.action |= st->arg;
+			break;
+		default:
+			err.MsgWrite(60101, L"Program error A=%d I=%c S=%d", st->action, *s, state);
+		}
+		state = st->newState;
+	}
+	if ( state != 5 )
+		err.MsgWrite(50112, L"Error(s) found [%d,%d]", state, input);
 
-   if ( result.type & ArgD )     // directory
-   {
-      if ( result.component & ArgC )
-         switch ( result.oper )
-         {
-            case ArgP:
-               gOptions.dir.contents |= result.action;
-               break;
-            case ArgM:
-               gOptions.dir.contents &= ~result.action;
-               break;
-            case ArgE:
-               gOptions.dir.contents = result.action;
-               break;
-         }
-      if ( result.component & ArgA )
-         switch ( result.oper )
-         {
-            case ArgP:
-               gOptions.dir.attr |= result.action;
-               break;
-            case ArgM:
-               gOptions.dir.attr &= ~result.action;
-               break;
-            case ArgE:
-               gOptions.dir.attr = result.action;
-               break;
-         }
-      if ( result.component & ArgP )
-         switch ( result.oper )
-         {
-            case ArgP:
-               gOptions.dir.perms |= result.action;
-               break;
-            case ArgM:
-               gOptions.dir.perms &= ~result.action;
-               break;
-            case ArgE:
-               gOptions.dir.perms = result.action;
-               break;
-         }
-   }
-   if ( result.type & ArgF )     // directory
-   {
-      if ( result.component & ArgC )
-         switch ( result.oper )
-         {
-            case ArgP:
-               gOptions.file.contents |= result.action;
-               break;
-            case ArgM:
-               gOptions.file.contents &= ~result.action;
-               break;
-            case ArgE:
-               gOptions.file.contents = result.action;
-               break;
-         }
-      if ( result.component & ArgA )
-         switch ( result.oper )
-         {
-            case ArgP:
-               gOptions.file.attr |= result.action;
-               break;
-            case ArgM:
-               gOptions.file.attr &= ~result.action;
-               break;
-            case ArgE:
-               gOptions.file.attr = result.action;
-               break;
-         }
-      if ( result.component & ArgP )
-         switch ( result.oper )
-         {
-            case ArgP:
-               gOptions.file.perms |= result.action;
-               break;
-            case ArgM:
-               gOptions.file.perms &= ~result.action;
-               break;
-            case ArgE:
-               gOptions.file.perms = result.action;
-               break;
-         }
-   }
+	if ( result.type & ArgD )     // directory
+	{
+		if ( result.component & ArgC )
+			switch ( result.oper )
+			{
+			case ArgP:
+				gOptions.dir.contents |= result.action;
+				break;
+			case ArgM:
+				gOptions.dir.contents &= ~result.action;
+				break;
+			case ArgE:
+				gOptions.dir.contents = result.action;
+				break;
+			}
+		if ( result.component & ArgA )
+			switch ( result.oper )
+			{
+			case ArgP:
+				gOptions.dir.attr |= result.action;
+				break;
+			case ArgM:
+				gOptions.dir.attr &= ~result.action;
+				break;
+			case ArgE:
+				gOptions.dir.attr = result.action;
+				break;
+			}
+		if ( result.component & ArgP )
+			switch ( result.oper )
+			{
+			case ArgP:
+				gOptions.dir.perms |= result.action;
+				break;
+			case ArgM:
+				gOptions.dir.perms &= ~result.action;
+				break;
+			case ArgE:
+				gOptions.dir.perms = result.action;
+				break;
+			}
+	}
+	if ( result.type & ArgF )     // directory
+	{
+		if ( result.component & ArgC )
+			switch ( result.oper )
+			{
+			case ArgP:
+				gOptions.file.contents |= result.action;
+				break;
+			case ArgM:
+				gOptions.file.contents &= ~result.action;
+				break;
+			case ArgE:
+				gOptions.file.contents = result.action;
+				break;
+			}
+		if ( result.component & ArgA )
+			switch ( result.oper )
+			{
+			case ArgP:
+				gOptions.file.attr |= result.action;
+				break;
+			case ArgM:
+				gOptions.file.attr &= ~result.action;
+				break;
+			case ArgE:
+				gOptions.file.attr = result.action;
+				break;
+			}
+		if ( result.component & ArgP )
+			switch ( result.oper )
+			{
+			case ArgP:
+				gOptions.file.perms |= result.action;
+				break;
+			case ArgM:
+				gOptions.file.perms &= ~result.action;
+				break;
+			case ArgE:
+				gOptions.file.perms = result.action;
+				break;
+			}
+	}
 
-   return 0;
+	return 0;
 }
 
-static void
-	Usage(
+static void	Usage(
 		bool					bDetail       // in -true = show detail
 	)
 {
@@ -358,9 +361,9 @@ static void
 				"          current timestamp when created.  Default is on.\n"
 				" /u       Update target with specified differences.  Turning this off\n"
 				"          means compare only.  Default is on.\n"
-				" /x       Subsequent file/wildcards are exclude file specifications.  Default\n"
+				" /x       Subsequent strings/wildcards are exclude file specifications.  Default\n"
 				"          is off.\n"
-				" /xd      Subsequent file/wildcards are exclude dir specifications.  Default\n"
+				" /xd      Subsequent strings/wildcards are exclude dir specifications.  Default\n"
 				"          is off.\n"
 				" /#       # represents one or more decimal digits for the max directory\n"
 				"          recursion depth, e.g., /2 means only process two levels down\n"
@@ -398,7 +401,7 @@ DWORD _stdcall							 // ret-0=success
 	)
 {
 	DWORD                     rc = 0;
-	BOOL                      negative = 0;
+	bool                      negative = false;
 	DWORD                     globalChangeMask = 0;
 	WCHAR const             * errMsg;
 
@@ -407,7 +410,7 @@ DWORD _stdcall							 // ret-0=success
 	case L'/':
 		if ( p_currArg[1] == L'-' )
 		{
-			negative = 1;
+			negative = true;
 			p_currArg++;
 		}
 		else if ( p_currArg[1] == L'+' )
@@ -448,52 +451,52 @@ DWORD _stdcall							 // ret-0=success
 					gLogName = L"NetDitto.log";
 			break;
 		default:
-			if (isdigit(p_currArg[1]))
+			if ( isdigit(p_currArg[1]) )
 				gOptions.maxLevel = _wtoi(p_currArg + 1);
-			else if (!wcscmp(p_currArg + 1, L"a"))
+			else if ( !wcscmp(p_currArg + 1, L"a") )
 				globalChangeMask = OPT_GlobalAttrArch;
-			else if (!wcsncmp(p_currArg + 1, L"as=", 3))
+			else if ( !wcsncmp(p_currArg + 1, L"as=", 3) )
 				AttrSignificanceSet(p_currArg + 4);
-			else if (!wcscmp(p_currArg + 1, L"backup"))
+			else if ( !wcscmp(p_currArg + 1, L"backup") )
 				globalChangeMask = OPT_GlobalBackup;
-			else if (!wcscmp(p_currArg + 1, L"backupforce"))
+			else if ( !wcscmp(p_currArg + 1, L"backupforce") )
 				globalChangeMask = OPT_GlobalBackup | OPT_GlobalBackupForce;
-			else if (!wcscmp(p_currArg + 1, L"h"))
+			else if ( !wcscmp(p_currArg + 1, L"h") )
 				globalChangeMask = OPT_GlobalHidden;
-			else if (!wcscmp(p_currArg + 1, L"m"))
+			else if ( !wcscmp(p_currArg + 1, L"m") )
 				globalChangeMask = OPT_GlobalMakeTgt;
-			else if (!wcscmp(p_currArg + 1, L"n"))
+			else if ( !wcscmp(p_currArg + 1, L"n") )
 				globalChangeMask = OPT_GlobalNewer;
-			else if (!wcscmp(p_currArg + 1, L"namecase"))
+			else if ( !wcscmp(p_currArg + 1, L"namecase") )
 				globalChangeMask = OPT_GlobalNameCase;
-			else if (!wcscmp(p_currArg + 1, L"o"))
+			else if ( !wcscmp(p_currArg + 1, L"o") )
 				globalChangeMask = OPT_GlobalOptimize;
-			else if (!wcscmp(p_currArg + 1, L"pa"))
+			else if ( !wcscmp(p_currArg + 1, L"pa") )
 				globalChangeMask = OPT_GlobalPermAttr;
-			else if (!wcscmp(p_currArg + 1, L"pd"))
+			else if ( !wcscmp(p_currArg + 1, L"pd") )
 				globalChangeMask = OPT_GlobalDirPrec;
-			else if (!wcscmp(p_currArg + 1, L"r"))
+			else if ( !wcscmp(p_currArg + 1, L"r") )
 				globalChangeMask = OPT_GlobalReadOnly;
-			else if (!wcscmp(p_currArg + 1, L"sd"))
+			else if ( !wcscmp(p_currArg + 1, L"sd") )
 				globalChangeMask = OPT_GlobalDispDetail;
-			else if (!wcscmp(p_currArg + 1, L"sm"))
+			else if ( !wcscmp(p_currArg + 1, L"sm") )
 				globalChangeMask = OPT_GlobalDispMatches;
-			else if (!wcscmp(p_currArg + 1, L"silent"))
+			else if ( !wcscmp(p_currArg + 1, L"silent") )
 				globalChangeMask = OPT_GlobalSilent;
-			else if (!wcscmp(p_currArg + 1, L"t"))
+			else if ( !wcscmp(p_currArg + 1, L"t") )
 				globalChangeMask = OPT_GlobalDirTime;
-			else if (!wcscmp(p_currArg + 1, L"u"))
+			else if ( !wcscmp(p_currArg + 1, L"u") )
 				globalChangeMask = OPT_GlobalChange;
-			else if (!wcscmp(p_currArg + 1, L"xor"))
+			else if ( !wcscmp(p_currArg + 1, L"xor") )
 				globalChangeMask = OPT_GlobalCopyXOR;
-			else if (!wcscmp(p_currArg + 1, L"x"))
+			else if ( !wcscmp(p_currArg + 1, L"x") )
 			{
 				if ( *p_state < PSTargetSet )
 				{
 					rc = 2;
 					err.MsgWrite(3093, L"Filter option (/x or /d) given before target specified");
 				}
-				*p_state = PSFileFilterExclude;
+				*p_state = PSFileFilterExclude;		// set state so successive strings are treated as file exclude wildcards
 			}
 			else if ( !wcscmp(p_currArg + 1, L"xd") )
 			{
@@ -502,7 +505,7 @@ DWORD _stdcall							 // ret-0=success
 					rc = 2;
 					err.MsgWrite(3094, L"Filter option (/x or /d) given before target specified");
 				}
-				*p_state = PSDirFilterExclude;
+				*p_state = PSDirFilterExclude;		// set state so successive strings are treated as dir exclude wildcards
 			}
 			else if ( !wcsncmp(p_currArg+1, L"sf=", 3) )
 			{
@@ -514,14 +517,16 @@ DWORD _stdcall							 // ret-0=success
 					rc = 1;
 				}
 			}
-			else if ( !wcsncmp(p_currArg+1, L"si", 2) )
+			else if ( !wcsncmp(p_currArg + 1, L"si", 2) )
+			{
 				if ( !isdigit(p_currArg[3]) )
 				{
 					err.MsgWrite(20003, L"Space check interval secs (si) must be numeric");
 					rc = 1;
 				}
 				else
-					gOptions.spaceInterval = 1000l * _wtoi(p_currArg+3);
+					gOptions.spaceInterval = 1000l * _wtoi(p_currArg + 3);
+			}
 			else
 			{
 				err.MsgWrite(20001, L"Invalid switch '%s'", p_currArg - negative);
@@ -529,14 +534,16 @@ DWORD _stdcall							 // ret-0=success
 			}
 		}
 		if ( globalChangeMask )
+		{
 			if ( negative )
 				gOptions.global &= ~globalChangeMask;  // turn off option bit
 			else
 				gOptions.global |= globalChangeMask;   // turn on option bit
+		}
 		break;
 	default:
 		// unswitched parms (strings without a /prefix) are source, target paths and then filter wildcards
-		switch (*p_state)
+		switch ( *p_state )
 		{
 		case PSNone:
 			if ( wcscmp(p_currArg, L"-") )
@@ -546,9 +553,9 @@ DWORD _stdcall							 // ret-0=success
 			*p_state = PSSourceSet;
 			break;
 		case PSSourceSet:
-				rc = gTarget.SetNormalizedRootPath(p_currArg);
-				*p_state = PSTargetSet;
-				break;
+			rc = gTarget.SetNormalizedRootPath(p_currArg);
+			*p_state = PSTargetSet;
+			break;
 		case PSTargetSet:		// strings are implicitly include filters after paths and no switch
 		case PSFIleFilterInclude:
 			ListAdd(&gOptions.include, p_currArg);
@@ -579,42 +586,42 @@ DWORD _stdcall								 // ret-0=success
 		ParmState			  * p_state		 // i/o-state for interpreting includes/excludes
 	)
 {
-   DWORD                     rc,
-                             rcMax = 0;
-   FILE                    * fileParm;
-   WCHAR                     line[256],
-                           * c,
-                           * next;
+	DWORD						rc,
+								rcMax = 0;
+	FILE					  * fileParm;
+	WCHAR						line[256],
+							  * c,
+							  * next;
 
-   if ( !(fileParm = _wfsopen(fileName, L"r", SH_DENYNO)) )
-   {
-      err.MsgWrite(30109, L"Parameter file(%s) open failed", fileName);
-      return 3;
-   }
+	if ( !(fileParm = _wfsopen(fileName, L"r", SH_DENYNO)) )
+	{
+		err.MsgWrite(30109, L"Parameter file(%s) open failed", fileName);
+		return 3;
+	}
 
-   while ( fgetws(line, DIM(line)-1, fileParm) )
-   {
-      for ( c = line;  *c  && *c != L'\n';  c = next)
-      {
-         for ( ;  *c == L' ';  c++);         // set c to next non-blank
-         // set next to char following term -- blank, 0 or newline
-         for ( next = c;  *next  &&  *next != L' '  &&  *next != L'\n';  next++ );
-         if ( *next )
-         {
-            *next = L'\0';    // terminate string c
-            next++;           // and advance next to next char
-         }
+	while ( fgetws(line, DIM(line)-1, fileParm) )
+	{
+		for ( c = line;  *c  && *c != L'\n';  c = next)
+		{
+			for ( ;  *c == L' ';  c++);         // set c to next non-blank
+			// set next to char following term -- blank, 0 or newline
+			for ( next = c;  *next  &&  *next != L' '  &&  *next != L'\n';  next++ );
+			if ( *next )
+			{
+				*next = L'\0';    // terminate string c
+				next++;           // and advance next to next char
+			}
 
-         if ( *c )
-         {
-            rc = ParmArgProcess(c, p_state);
-            rcMax = max(rc, rcMax);
-         }
-      }
-   }
+			if ( *c )
+			{
+				rc = ParmArgProcess(c, p_state);
+				rcMax = max(rc, rcMax);
+			}
+		}
+	}
 
-   fclose(fileParm);
-   return rcMax;
+	fclose(fileParm);
+	return rcMax;
 }
 
 
@@ -692,40 +699,39 @@ DWORD _stdcall                            // ret-0=success
 // operative.
 //-----------------------------------------------------------------------------
 DWORD _stdcall                            // ret-number of warnings/fixes
-   OptionsResolve(
-   )
+	OptionsResolve()
 {
-   DWORD                     nFix = 0;
+	DWORD                     nFix = 0;
 
-   // if neither source nor target support ACLs
-   if ( !((gSource.GetFSFlags() | gTarget.GetFSFlags()) & FS_PERSISTENT_ACLS) )
-   {
-      if ( gOptions.global & OPT_GlobalBackup )
-      {
-         err.MsgWrite(10012, L"/backup option ignored because neither source "
-                             "nor target support ACLs");
-         gOptions.global &= ~(OPT_GlobalBackup | OPT_GlobalBackupForce);
-         nFix++;
-      }
+	// if neither source nor target support ACLs
+	if ( !((gSource.GetFSFlags() | gTarget.GetFSFlags()) & FS_PERSISTENT_ACLS) )
+	{
+		if ( gOptions.global & OPT_GlobalBackup )
+		{
+			err.MsgWrite(10012, L"/backup option ignored because neither source "
+								"nor target support ACLs");
+			gOptions.global &= ~(OPT_GlobalBackup | OPT_GlobalBackupForce);
+			nFix++;
+		}
 
-      if ( gOptions.dir.perms | gOptions.file.perms )
-      {
-         err.MsgWrite(10013, L"Permissions replication ignored: source/target "
-                             "must both support ACLs");
-         gOptions.dir.perms = gOptions.file.perms = 0;
-         nFix++;
-      }
-   }
+		if ( gOptions.dir.perms | gOptions.file.perms )
+		{
+			err.MsgWrite(10013, L"Permissions replication ignored: source/target "
+								"must both support ACLs");
+			gOptions.dir.perms = gOptions.file.perms = 0;
+			nFix++;
+		}
+	}
 
-   // Turn off compression significance if either source/target don't support compression
-   if ( !(gSource.GetFSFlags() & gTarget.GetFSFlags() & FS_FILE_COMPRESSION) )
-   {
-      if ( gOptions.attrSignif & FILE_ATTRIBUTE_COMPRESSED )
-      {
-         nFix++;
-         gOptions.attrSignif &= ~FILE_ATTRIBUTE_COMPRESSED;
-      }
-   }
+	// Turn off compression significance if either source/target don't support compression
+	if ( !(gSource.GetFSFlags() & gTarget.GetFSFlags() & FS_FILE_COMPRESSION) )
+	{
+		if ( gOptions.attrSignif & FILE_ATTRIBUTE_COMPRESSED )
+		{
+			nFix++;
+			gOptions.attrSignif &= ~FILE_ATTRIBUTE_COMPRESSED;
+		}
+	}
 
-   return nFix;
+	return nFix;
 }

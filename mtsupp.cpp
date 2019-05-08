@@ -13,7 +13,7 @@
                checking for free disk space on the target.
 
   Updates -
-
+	Changed to Win32
 ================================================================================
 */
 
@@ -33,33 +33,33 @@ static TEvent                 evSpace(FALSE, FALSE); // unsignalled auto-reset e
 // processing to resume and the main program to end.
 //-----------------------------------------------------------------------------
 static void _cdecl
-   StatsDisplayThread()
+	StatsDisplayThread()
 {
-   DWORD                     rc;
-   bool						 done = false;
+	DWORD						rc;
+	bool						done = false;
 
-   while ( !done )
-   {
-      switch ( rc = evStats.WaitSingle(gOptions.statsInterval) )
-      {
-         case WAIT_OBJECT_0:
-         case WAIT_ABANDONED:
-            done = true;
-            break;
-         case WAIT_TIMEOUT:
-            break;
-         case WAIT_FAILED:
-         default:
-            err.SysMsgWrite(50112, rc, L"WaitForSingleObject(eventStats)=%d ", rc);
-      }
-      DisplayStatsCommon(&gOptions.stats.source, &gOptions.stats.target);
-      DisplayStatsChange(&gOptions.stats.change);
-      DisplayStatsMatch(&gOptions.stats.match);
-      DisplayTime();
-   }
+	while ( !done )
+	{
+		switch ( rc = evStats.WaitSingle(gOptions.statsInterval) )
+		{
+			case WAIT_OBJECT_0:
+			case WAIT_ABANDONED:
+				done = true;
+				break;
+			case WAIT_TIMEOUT:
+				break;
+			case WAIT_FAILED:
+			default:
+				err.SysMsgWrite(50112, rc, L"WaitForSingleObject(eventStats)=%d ", rc);
+		}
+		DisplayStatsCommon(&gOptions.stats.source, &gOptions.stats.target);
+		DisplayStatsChange(&gOptions.stats.change);
+		DisplayStatsMatch(&gOptions.stats.match);
+		DisplayTime();
+	}
 
-   evStats.Set();
-   _endthread();
+	evStats.Set();
+	_endthread();
 }
 
 
@@ -89,10 +89,10 @@ short _stdcall
 // before returning to the caller.
 //-----------------------------------------------------------------------------
 void _stdcall
-   StatsTimerTerminate()
+	StatsTimerTerminate()
 {
-   evStats.Set();         // Releases the wait in the stats display thread
-   evStats.WaitSingle(gOptions.statsInterval);
+	evStats.Set();      // Release the wait in the stats display thread to end it
+	Sleep(10);			// wait a smidge to display stats before process end
 }
 
 
